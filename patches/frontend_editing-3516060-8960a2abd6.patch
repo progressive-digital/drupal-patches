@@ -1,0 +1,87 @@
+From 8960a2abd6256c4dfff38b0ef1b9ef6cf2778ca9 Mon Sep 17 00:00:00 2001
+From: Ihor Mashevskyi <i.mashevskyi@dev-branch.com>
+Date: Fri, 28 Mar 2025 18:32:17 +0200
+Subject: [PATCH] Issue #3516060: Add the ability to load a specific revision
+
+---
+ src/Controller/FrontendEditingController.php  |  7 +++-
+ .../BlockComponentRevisionSubscriber.php      | 42 +++++++++++++++++++
+ 2 files changed, 48 insertions(+), 1 deletion(-)
+ create mode 100644 src/EventSubscriber/BlockComponentRevisionSubscriber.php
+
+diff --git a/src/Controller/FrontendEditingController.php b/src/Controller/FrontendEditingController.php
+index 41281c3..26a1018 100644
+--- a/src/Controller/FrontendEditingController.php
++++ b/src/Controller/FrontendEditingController.php
+@@ -13,6 +13,7 @@ use Drupal\Core\Controller\ControllerBase;
+ use Drupal\Core\Entity\EntityFormBuilder;
+ use Drupal\Core\Entity\EntityInterface;
+ use Drupal\Core\Entity\EntityRepositoryInterface;
++use Drupal\Core\Entity\RevisionableStorageInterface;
+ use Drupal\Core\Render\Element;
+ use Drupal\Core\Render\RendererInterface;
+ use Drupal\Core\Url;
+@@ -168,7 +169,11 @@ class FrontendEditingController extends ControllerBase {
+       $this->messenger()->addError($exception->getMessage());
+       return [];
+     }
+-    $entity = $storage->load($id);
++
++    $revision_id = $request->query->get('entity_revision_id');
++    $entity = $revision_id && $storage instanceof RevisionableStorageInterface
++      ? $storage->loadRevision($revision_id)
++      : $storage->load($id);
+     if (!$entity) {
+       $this->messenger()->addWarning($this->t('Entity of type @type and id @id was not found',
+         ['@type' => $type, '@id' => $id]
+diff --git a/src/EventSubscriber/BlockComponentRevisionSubscriber.php b/src/EventSubscriber/BlockComponentRevisionSubscriber.php
+new file mode 100644
+index 0000000..e58739b
+--- /dev/null
++++ b/src/EventSubscriber/BlockComponentRevisionSubscriber.php
+@@ -0,0 +1,42 @@
++<?php
++
++namespace Drupal\frontend_editing\EventSubscriber;
++
++use Drupal\Core\Entity\EntityInterface;
++use Drupal\layout_builder\Event\SectionComponentBuildRenderArrayEvent;
++use Symfony\Component\EventDispatcher\EventSubscriberInterface;
++use Drupal\layout_builder\LayoutBuilderEvents;
++
++/**
++ * Class BlockComponentRevisionSubscriber.
++ */
++class BlockComponentRevisionSubscriber implements EventSubscriberInterface {
++
++  /**
++   * {@inheritdoc}
++   */
++  public static function getSubscribedEvents() {
++    $events[LayoutBuilderEvents::SECTION_COMPONENT_BUILD_RENDER_ARRAY] = ['onBuildRender', 55];
++    return $events;
++  }
++
++  /**
++   * Add each component's block revision id to frontend editing.
++   *
++   * @param \Drupal\layout_builder\Event\SectionComponentBuildRenderArrayEvent $event
++   *   The section component render event.
++   */
++  public function onBuildRender(SectionComponentBuildRenderArrayEvent $event) {
++    $build = $event->getBuild();
++    if (isset($build['content']['frontend_editing']['common_actions']['title_edit']['edit'])) {
++      /** @var \Drupal\Core\Url $url */
++      $url = $build['content']['frontend_editing']['common_actions']['title_edit']['edit']['#url'];
++      $query = $url->getOption('query');
++      $revision_id = $event->getComponent()->getPlugin()->getConfiguration()['block_revision_id'];
++      $query['entity_revision_id'] = $revision_id;
++      $url->setOption('query', $query);
++      $event->setBuild($build);
++    }
++  }
++
++}
+-- 
+GitLab
+

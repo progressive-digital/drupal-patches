@@ -1,0 +1,29 @@
+diff --git a/core/misc/dialog/off-canvas/js/off-canvas.js b/core/misc/dialog/off-canvas/js/off-canvas.js
+index a85f3522..faca6843 100644
+--- a/core/misc/dialog/off-canvas/js/off-canvas.js
++++ b/core/misc/dialog/off-canvas/js/off-canvas.js
+@@ -139,12 +139,20 @@
+         .getContainer($element)
+         .attr(`data-offset-${Drupal.offCanvas.getEdge()}`, '');
+
++      let resizeTimer;
+       $(window)
+-        .on(
+-          'resize.off-canvas',
+-          eventData,
+-          debounce(Drupal.offCanvas.resetSize, 100, true),
+-        )
++        .on('resize.off-canvas', eventData, function (event) {
++          const $element = event.data.$element;
++          const $container = Drupal.offCanvas.getContainer($element);
++          // Change off canvas size during resize.
++          $container.width($element.outerWidth());
++          $element.width($element.outerWidth());
++          // Reset size right after resize is finished.
++          clearTimeout(resizeTimer);
++          resizeTimer = setTimeout(() => {
++            Drupal.offCanvas.resetSize(event);
++          }, 300);
++        })
+         .trigger('resize.off-canvas');
+     },

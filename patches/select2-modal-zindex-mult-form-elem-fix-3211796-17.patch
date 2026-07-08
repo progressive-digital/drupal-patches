@@ -1,0 +1,185 @@
+From 20d9062f78a3779fd5623ee5138757f301c8c82e Mon Sep 17 00:00:00 2001
+From: herve001 <herve001@2197136.no-reply.drupal.org>
+Date: Mon, 21 Feb 2022 08:46:29 +0800
+Subject: [PATCH 1/4] Issue #3211796: Issue with z-index when opening in modal
+ dialog
+
+---
+ src/Element/Select2.php | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/Element/Select2.php b/src/Element/Select2.php
+index 27b3bf5..6c3215c 100644
+--- a/src/Element/Select2.php
++++ b/src/Element/Select2.php
+@@ -206,6 +206,12 @@ class Select2 extends Select {
+       }
+     }
+ 
++    // Pass the form ID to dropdownParent if not set.
++    // This ensures select2 works properly if the form is inside a modal.
++    if (empty($element['#select2']['dropdownParent']) && !empty($complete_form['#id'])) {
++      $element['#select2']['dropdownParent'] = '#' . $complete_form['#id'];
++    }
++
+     if (!$element['#multiple'] && !isset($element['#options'][$element['#empty_value']])) {
+       $empty_option = [$element['#empty_value'] => ''];
+       $element['#options'] = $empty_option + $element['#options'];
+-- 
+GitLab
+
+
+From 19759a357510116a267c57d05c3ccdf4b1a7b95b Mon Sep 17 00:00:00 2001
+From: beuner <beuner@1312798.no-reply.drupal.org>
+Date: Tue, 12 Jul 2022 15:39:43 +0300
+Subject: [PATCH 2/4] Issue #3211796: Issue with z-index when opening in modal
+ dialog
+
+---
+ src/Plugin/Field/FieldWidget/Select2Widget.php | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/Plugin/Field/FieldWidget/Select2Widget.php b/src/Plugin/Field/FieldWidget/Select2Widget.php
+index 83c72e4..cf01b66 100644
+--- a/src/Plugin/Field/FieldWidget/Select2Widget.php
++++ b/src/Plugin/Field/FieldWidget/Select2Widget.php
+@@ -66,6 +66,7 @@ class Select2Widget extends OptionsSelectWidget {
+     $element['#cardinality'] = $this->fieldDefinition->getFieldStorageDefinition()->getCardinality();
+     $element['#select2'] = [
+       'width' => $this->getSetting('width'),
++      'dropdownParent' => '#' . $form['#id'],
+     ];
+ 
+     return $element;
+-- 
+GitLab
+
+
+From 184422da589f7d212593a866279cb20f4d12ee8b Mon Sep 17 00:00:00 2001
+From: dinazaur <dinazaur@3637512.no-reply.drupal.org>
+Date: Tue, 12 Jul 2022 20:57:41 +0300
+Subject: [PATCH 3/4] Issue #3211796: Issue with z-index when opening in modal
+ dialog
+
+---
+ .../Field/FieldWidget/Select2Widget.php       | 49 ++++++++++++++++++-
+ 1 file changed, 48 insertions(+), 1 deletion(-)
+
+diff --git a/src/Plugin/Field/FieldWidget/Select2Widget.php b/src/Plugin/Field/FieldWidget/Select2Widget.php
+index cf01b66..a192f91 100644
+--- a/src/Plugin/Field/FieldWidget/Select2Widget.php
++++ b/src/Plugin/Field/FieldWidget/Select2Widget.php
+@@ -2,6 +2,7 @@
+ 
+ namespace Drupal\select2\Plugin\Field\FieldWidget;
+ 
++use Drupal\Component\Utility\NestedArray;
+ use Drupal\Core\Field\FieldItemListInterface;
+ use Drupal\Core\Field\Plugin\Field\FieldWidget\OptionsSelectWidget;
+ use Drupal\Core\Form\FormStateInterface;
+@@ -22,6 +23,13 @@ use Drupal\Core\Form\FormStateInterface;
+  */
+ class Select2Widget extends OptionsSelectWidget {
+ 
++  /**
++   * Holds element's array parents.
++   *
++   * @var array|null
++   */
++  protected $elementArrayParents = null;
++
+   /**
+    * {@inheritdoc}
+    */
+@@ -66,9 +74,48 @@ class Select2Widget extends OptionsSelectWidget {
+     $element['#cardinality'] = $this->fieldDefinition->getFieldStorageDefinition()->getCardinality();
+     $element['#select2'] = [
+       'width' => $this->getSetting('width'),
+-      'dropdownParent' => '#' . $form['#id'],
+     ];
+ 
++    $element['#after_build'][] = [$this, 'addDropdownParent'];
++    $form['#after_build'][] = [$this, 'addDropdownParent'];
++
++    return $element;
++  }
++
++  /**
++   * Add dropdown parent.
++   *
++   * There could be two cases:
++   *   1. Widget is inside regular form. This means that first will be
++   *      processed element that holds widget and then widget itself. In that
++   *      case we get id of element that holds widget directly from completed
++   *      form.
++   *   2. Widget is inside paragraph or inline_entity_form. In that case
++   *      first will be processed widget and after that element that holds it.
++   *      Here we set dropdown parent id inside widget finding it inside
++   *      element.
++   */
++  public function addDropdownParent(array $element, FormStateInterface $form_state) {
++    if (
++      // If parents are set and select2 is not set that means that this is
++      // regular form.
++      isset($element['#select2']) && isset($this->elementArrayParents)
++      // Get widget's form.
++      && ($widget_form = NestedArray::getValue($form_state->getCompleteForm(), $this->elementArrayParents))
++      // Just in case check if id exists.
++      && isset($widget_form['#id'])
++    ) {
++      $element['#select2']['dropdownParent'] = '#' . $widget_form['#id'];
++    }
++    // If parents element's parents are set and select2 is not set then this is
++    // paragraph or ief.
++    elseif (!isset($element['#select2']) && isset($this->elementArrayParents) && isset($element['#id'])) {
++      // Get actual path to widget where it is set inside form.
++      $current_parents_to_widget = array_slice($this->elementArrayParents, count($element['#array_parents']));
++      $widget_element = &NestedArray::getValue($element, $current_parents_to_widget);
++      $widget_element['#select2']['dropdownParent'] = '#' . $element['#id'];
++    }
++    $this->elementArrayParents = $element['#array_parents'];
+     return $element;
+   }
+ 
+-- 
+GitLab
+
+
+From e685f84c6d8987fcc8e6f91a1ca857563ce9b6c4 Mon Sep 17 00:00:00 2001
+From: Nazar Velychenko <51416-dinazaur@users.noreply.drupalcode.org>
+Date: Tue, 18 Apr 2023 21:12:43 +0300
+Subject: [PATCH 4/4] Issue #3211796: Issue with z-index when opening in modal
+ dialog
+
+---
+ src/Element/Select2.php | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/Element/Select2.php b/src/Element/Select2.php
+index 6c3215c..fcce8f2 100644
+--- a/src/Element/Select2.php
++++ b/src/Element/Select2.php
+@@ -3,6 +3,7 @@
+ namespace Drupal\select2\Element;
+ 
+ use Drupal\Component\Serialization\Json;
++use Drupal\Component\Utility\Html;
+ use Drupal\Core\Entity\Element\EntityAutocomplete;
+ use Drupal\Core\Form\FormState;
+ use Drupal\Core\Form\FormStateInterface;
+@@ -209,7 +210,11 @@ class Select2 extends Select {
+     // Pass the form ID to dropdownParent if not set.
+     // This ensures select2 works properly if the form is inside a modal.
+     if (empty($element['#select2']['dropdownParent']) && !empty($complete_form['#id'])) {
+-      $element['#select2']['dropdownParent'] = '#' . $complete_form['#id'];
++      $id_prefix = implode('-', array_merge($element['#parents'] ?? []));
++      $wrapper_id = Html::getUniqueId($id_prefix . '-select2-element-wrapper');
++      $element['#prefix'] = '<div id="' . $wrapper_id . '">';
++      $element['#suffix'] = '</div>';
++      $element['#select2']['dropdownParent'] = '#' . $wrapper_id;
+     }
+ 
+     if (!$element['#multiple'] && !isset($element['#options'][$element['#empty_value']])) {
+-- 
+GitLab
+

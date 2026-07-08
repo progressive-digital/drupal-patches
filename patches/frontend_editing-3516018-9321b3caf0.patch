@@ -1,0 +1,142 @@
+From 9321b3caf0136731768de9cd4f5acae73ace0b68 Mon Sep 17 00:00:00 2001
+From: Ihor Mashevskyi <i.mashevskyi@dev-branch.com>
+Date: Mon, 28 Jul 2025 14:31:02 +0300
+Subject: [PATCH] Issue #3516018: Fixed editing of layout builder blocks.
+
+---
+ frontend_editing.module | 65 ++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 55 insertions(+), 10 deletions(-)
+
+diff --git a/frontend_editing.module b/frontend_editing.module
+index cf1aea6..5d250c0 100644
+--- a/frontend_editing.module
++++ b/frontend_editing.module
+@@ -5,13 +5,13 @@
+  * Functions and hooks for the frontend_editing module.
+  */
+ 
+-use Drupal\block_content\BlockContentInterface;
+ use Drupal\Component\Utility\Color;
+ use Drupal\Core\Ajax\AjaxResponse;
+ use Drupal\Core\Ajax\MessageCommand;
+ use Drupal\Core\Ajax\ReplaceCommand;
+ use Drupal\Core\Cache\CacheableMetadata;
+ use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
++use Drupal\Core\Entity\EditorialContentEntityBase;
+ use Drupal\Core\Entity\EntityForm;
+ use Drupal\Core\Entity\EntityInterface;
+ use Drupal\Core\Entity\RevisionableInterface;
+@@ -27,7 +27,6 @@ use Drupal\frontend_editing\Ajax\EntityPreviewCommand;
+ use Drupal\frontend_editing\Ajax\ScrollTopCommand;
+ use Drupal\frontend_editing\Form\ParagraphAddForm;
+ use Drupal\frontend_editing\Form\ParagraphDeleteForm;
+-use Drupal\layout_builder\SectionComponent;
+ use Drupal\paragraphs\ParagraphInterface;
+ 
+ /**
+@@ -556,8 +555,24 @@ function frontend_editing_form_alter(&$form, FormStateInterface $form_state, $fo
+         }
+       }
+ 
+-      // Add new action to update layout_builder data for blocks.
+-      $form['actions']['submit']['#submit'][] = '_frontend_editing_update_parent_layout_builder';
++      if (_frontend_editing_check_inline_block_and_get_usage($entity)) {
++
++        // Force add revision to block.
++        if (isset($form['revision'])) {
++          $form['revision']['#default_value'] = TRUE;
++          $form['revision']['#access'] = FALSE;
++        }
++        if (isset($form['revision_log'])) {
++          $form['revision_log']['widget'][0]['value']['#default_value'] = t('Updated by Frontend Editing');
++          $form['revision_log']['#access'] = FALSE;
++        }
++        if (isset($form['revision_information'])) {
++          $form['revision_information']['#access'] = FALSE;
++        }
++
++        // Add new actions to update layout_builder data for blocks and block revision.
++        $form['actions']['submit']['#submit'][] = '_frontend_editing_update_parent_layout_builder';
++      }
+     }
+   }
+ }
+@@ -1061,6 +1076,27 @@ function frontend_editing_gin_content_form_routes_alter(&$route_names) {
+   $route_names[] = 'frontend_editing.form';
+ }
+ 
++/**
++ * Check if entity is inline entity and return its usage.
++ *
++ * @param \Drupal\Core\EntityEntityInterface $entity
++ *   Entity object.
++ *
++ * @return object|false|null
++ *   Usage object if it's exist.
++ */
++function _frontend_editing_check_inline_block_and_get_usage(EntityInterface $entity) {
++  // Skip if entity isn't block content.
++  if ($entity->getEntityTypeId() !== 'block_content' ||
++    !\Drupal::service('module_handler')->moduleExists('layout_builder')
++  ) {
++    return NULL;
++  }
++
++  $entity_id = $entity->id();
++  return \Drupal::service('inline_block.usage')->getUsage($entity_id);
++}
++
+ /**
+  * Update parent entity layout builder.
+  *
+@@ -1072,13 +1108,8 @@ function frontend_editing_gin_content_form_routes_alter(&$route_names) {
+ function _frontend_editing_update_parent_layout_builder(array $form, FormStateInterface $form_state) {
+   $entity = $form_state->getBuildInfo()['callback_object']->getEntity();
+ 
+-  // Skip if entity isn't block content.
+-  if (!$entity instanceof BlockContentInterface) {
+-    return;
+-  }
++  $usage = _frontend_editing_check_inline_block_and_get_usage($entity);
+ 
+-  $entity_id = $entity->id();
+-  $usage = \Drupal::service('inline_block.usage')->getUsage($entity_id);
+   if (empty($usage)) {
+     return;
+   }
+@@ -1107,11 +1138,17 @@ function _frontend_editing_update_parent_layout_builder(array $form, FormStateIn
+   foreach ($sections as $section) {
+     foreach ($section->getComponents() as $component) {
+       $plugin = $component->getPlugin();
++      // Process only inline block plugins.
++      if ($plugin->getBaseId() !== 'inline_block') {
++        continue;
++      }
++
+       $configuration = $plugin->getConfiguration();
+       if ($configuration['block_id'] !== $entity->id()) {
+         continue;
+       }
+       $configuration['label'] = $entity->label();
++      $configuration['block_revision_id'] = $entity->getRevisionId();
+       $component->setConfiguration($configuration);
+       $updated = TRUE;
+       break 2;
+@@ -1119,6 +1156,14 @@ function _frontend_editing_update_parent_layout_builder(array $form, FormStateIn
+   }
+ 
+   if ($updated) {
++    // Create new revision for the parent entity if it is possible.
++    if ($parent_entity instanceof EditorialContentEntityBase) {
++      $parent_entity->setNewRevision();
++      $parent_entity->setRevisionLogMessage(t('Updated block content @label in layout builder.', ['@label' => $entity->label()]));
++      $parent_entity->setRevisionUserId(\Drupal::currentUser()->id());
++      $parent_entity->setRevisionCreationTime(\Drupal::time()->getRequestTime());
++    }
++
+     $parent_entity->get($layout_builder_field)->setValue($sections);
+     $parent_entity->save();
+   }
+-- 
+GitLab
+

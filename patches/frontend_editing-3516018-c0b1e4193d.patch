@@ -1,0 +1,110 @@
+From c0b1e4193d95d2f4c81c651878669302cd29b37a Mon Sep 17 00:00:00 2001
+From: Ihor Mashevskyi <i.mashevskyi@dev-branch.com>
+Date: Fri, 28 Mar 2025 16:26:31 +0200
+Subject: [PATCH] Issue #3516018: The title for layout_builder blocks can't be
+ edited
+
+---
+ frontend_editing.module | 68 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 68 insertions(+)
+
+diff --git a/frontend_editing.module b/frontend_editing.module
+index 7cd09a6..10e5766 100644
+--- a/frontend_editing.module
++++ b/frontend_editing.module
+@@ -5,6 +5,7 @@
+  * Functions and hooks for the frontend_editing module.
+  */
+ 
++use Drupal\block_content\BlockContentInterface;
+ use Drupal\Component\Utility\Color;
+ use Drupal\Core\Ajax\AjaxResponse;
+ use Drupal\Core\Ajax\MessageCommand;
+@@ -25,6 +26,7 @@ use Drupal\frontend_editing\Ajax\EntityPreviewCommand;
+ use Drupal\frontend_editing\Ajax\ScrollTopCommand;
+ use Drupal\frontend_editing\Form\ParagraphAddForm;
+ use Drupal\frontend_editing\Form\ParagraphDeleteForm;
++use Drupal\layout_builder\SectionComponent;
+ use Drupal\paragraphs\ParagraphInterface;
+ 
+ /**
+@@ -552,6 +554,9 @@ function frontend_editing_form_alter(&$form, FormStateInterface $form_state, $fo
+           ];
+         }
+       }
++
++      // Add new action to update layout_builder data for blocks.
++      $form['actions']['submit']['#submit'][] = '_frontend_editing_update_parent_layout_builder';
+     }
+   }
+ }
+@@ -1054,3 +1059,66 @@ function frontend_editing_gin_content_form_routes_alter(&$route_names) {
+   // Allow Gin to process the form as it is content form.
+   $route_names[] = 'frontend_editing.form';
+ }
++
++/**
++ * Update parent entity layout builder.
++ *
++ * @param array $form
++ *   The form definition.
++ * @param \Drupal\Core\Form\FormStateInterface $form_state
++ *   The form state.
++ */
++function _frontend_editing_update_parent_layout_builder(array $form, FormStateInterface $form_state) {
++  $entity = $form_state->getBuildInfo()['callback_object']->getEntity();
++
++  // Skip if entity isn't block content.
++  if (!$entity instanceof BlockContentInterface) {
++    return;
++  }
++
++  $entity_id = $entity->id();
++  $usage = \Drupal::service('inline_block.usage')->getUsage($entity_id);
++  if (empty($usage)) {
++    return;
++  }
++
++  $langcode = \Drupal::languageManager()->getCurrentLanguage()->getId();
++  $layout_builder_field = 'layout_builder__layout';
++  $parent_entity = \Drupal::entityTypeManager()->getStorage($usage->layout_entity_type)
++    ->load($usage->layout_entity_id);
++
++  // Skip if there is no parent entity.
++  if (!$parent_entity) {
++    return;
++  }
++
++  // Get correct translation.
++  if ($parent_entity->hasTranslation($langcode)) {
++    $parent_entity = $parent_entity->getTranslation($langcode);
++  }
++
++  /** @var \Drupal\layout_builder\Section[] $sections */
++  $sections = $parent_entity->hasField($layout_builder_field)
++    ? $parent_entity->get($layout_builder_field)->getSections()
++    : [];
++
++  $updated = FALSE;
++  foreach ($sections as $section) {
++    foreach ($section->getComponents() as $component) {
++      $plugin = $component->getPlugin();
++      $configuration = $plugin->getConfiguration();
++      if ($configuration['block_id'] !== $entity->id()) {
++        continue;
++      }
++      $configuration['label'] = $entity->label();
++      $component->setConfiguration($configuration);
++      $updated = TRUE;
++      break 2;
++    }
++  }
++
++  if ($updated) {
++    $parent_entity->get($layout_builder_field)->setValue($sections);
++    $parent_entity->save();
++  }
++}
+-- 
+GitLab
+

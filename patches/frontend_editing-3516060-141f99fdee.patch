@@ -1,0 +1,31 @@
+From 141f99fdeee476eb1f7ac469d64b69d1f548debb Mon Sep 17 00:00:00 2001
+From: Ihor Mashevskyi <i.mashevskyi@dev-branch.com>
+Date: Thu, 5 Jun 2025 17:58:36 +0300
+Subject: [PATCH] Issue #3516060: Corrected for reusable blocks.
+
+---
+ src/EventSubscriber/BlockComponentRevisionSubscriber.php | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/EventSubscriber/BlockComponentRevisionSubscriber.php b/src/EventSubscriber/BlockComponentRevisionSubscriber.php
+index 00d96ab..80a22ef 100644
+--- a/src/EventSubscriber/BlockComponentRevisionSubscriber.php
++++ b/src/EventSubscriber/BlockComponentRevisionSubscriber.php
+@@ -31,9 +31,11 @@ class BlockComponentRevisionSubscriber implements EventSubscriberInterface {
+       /** @var \Drupal\Core\Url $url */
+       $url = $build['content']['frontend_editing']['common_actions']['title_edit']['edit']['#url'];
+       $query = $url->getOption('query');
+-      $revision_id = $event->getComponent()->getPlugin()->getConfiguration()['block_revision_id'];
+-      $query['entity_revision_id'] = $revision_id;
+-      $url->setOption('query', $query);
++      $revision_id = $event->getComponent()->getPlugin()->getConfiguration()['block_revision_id'] ?? NULL;
++      if ($revision_id) {
++        $query['entity_revision_id'] = $revision_id;
++        $url->setOption('query', $query);
++      }
+     }
+   }
+ 
+-- 
+GitLab
+

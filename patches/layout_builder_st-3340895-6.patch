@@ -1,0 +1,39 @@
+diff --git a/src/Form/BlockContentInlineBlockTranslateForm.php b/src/Form/BlockContentInlineBlockTranslateForm.php
+index 9581c68ae2e92c73fa807c2762d678a8328a36e2..fc08b5969e673096b3cd1cddd791ff6bea4b41d1 100644
+--- a/src/Form/BlockContentInlineBlockTranslateForm.php
++++ b/src/Form/BlockContentInlineBlockTranslateForm.php
+@@ -139,4 +139,34 @@ final class BlockContentInlineBlockTranslateForm extends BlockContentForm {
+     return $form;
+   }
+ 
++  /**
++   * Retrieves the section storage object.
++   *
++   * @return \Drupal\layout_builder\SectionStorageInterface
++   *   The section storage for the current form.
++   */
++  public function getSectionStorage() {
++    return $this->sectionStorage;
++  }
++
++  /**
++   * Retrieves the current layout section being edited by the form.
++   *
++   * @return \Drupal\layout_builder\Section
++   *   The current layout section.
++   */
++  public function getCurrentSection() {
++    return $this->sectionStorage->getSection($this->delta);
++  }
++
++  /**
++   * Retrieves the current component being edited by the form.
++   *
++   * @return \Drupal\layout_builder\SectionComponent
++   *   The current section component.
++   */
++  public function getCurrentComponent() {
++    return $this->getCurrentSection()->getComponent($this->uuid);
++  }
++
+ }

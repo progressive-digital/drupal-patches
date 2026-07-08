@@ -1,0 +1,1619 @@
+From 2c8d50ec950d01d0db00d230e588dbfaa9cb794f Mon Sep 17 00:00:00 2001
+From: Ihor Mashevskyi <i.mashevskyi@dev-branch.com>
+Date: Fri, 15 Aug 2025 19:12:27 +0300
+Subject: [PATCH 1/2] Issue #3541538: Write a schema for swiper view style, use
+ the same format (camelCase) for all config keys
+
+---
+ modules/sc_swiper/components/slider/README.md | 140 ++++++++++++++++
+ .../slider/slider-example.html.twig           |  98 +++++++++++
+ .../components/slider/slider.component.yml    | 142 ++++++++++++++++
+ .../sc_swiper/components/slider/slider.css    |   1 +
+ modules/sc_swiper/components/slider/slider.js | 101 ++++++++++++
+ .../sc_swiper/components/slider/slider.scss   | 152 ++++++++++++++++++
+ .../sc_swiper/components/slider/slider.twig   |  86 ++++++++++
+ .../config/schema/sc_swiper.schema.yml        |  99 ++++++++++++
+ .../config/schema/sc_swiper.views.schema.yml  |  92 +++++++++++
+ modules/sc_swiper/js/swiper-init.js           |  15 --
+ modules/sc_swiper/sc_swiper.libraries.yml     |  14 --
+ modules/sc_swiper/sc_swiper.module            |  36 +----
+ modules/sc_swiper/sc_swiper.post_update.php   |  95 +++++++++++
+ .../FieldFormatter/SwiperFormatterTrait.php   |  19 +--
+ .../src/Plugin/views/style/Swiper.php         |  25 ++-
+ modules/sc_swiper/src/SwiperBase.php          |  85 +---------
+ .../swiper-entity-formatter.html.twig         |  32 ++--
+ .../templates/swiper-views.html.twig          |  29 ++--
+ 18 files changed, 1067 insertions(+), 194 deletions(-)
+ create mode 100644 modules/sc_swiper/components/slider/README.md
+ create mode 100644 modules/sc_swiper/components/slider/slider-example.html.twig
+ create mode 100644 modules/sc_swiper/components/slider/slider.component.yml
+ create mode 100644 modules/sc_swiper/components/slider/slider.css
+ create mode 100644 modules/sc_swiper/components/slider/slider.js
+ create mode 100644 modules/sc_swiper/components/slider/slider.scss
+ create mode 100644 modules/sc_swiper/components/slider/slider.twig
+ create mode 100644 modules/sc_swiper/config/schema/sc_swiper.schema.yml
+ create mode 100644 modules/sc_swiper/config/schema/sc_swiper.views.schema.yml
+ delete mode 100755 modules/sc_swiper/js/swiper-init.js
+ create mode 100755 modules/sc_swiper/sc_swiper.post_update.php
+
+diff --git a/modules/sc_swiper/components/slider/README.md b/modules/sc_swiper/components/slider/README.md
+new file mode 100644
+index 0000000..7a56083
+--- /dev/null
++++ b/modules/sc_swiper/components/slider/README.md
+@@ -0,0 +1,140 @@
++# Slider Component
++
++A slider component using Swiper library for Drupal themes.
++
++## Usage
++
++### Basic Usage
++
++```twig
++{% set items = [
++  {
++    content: '<img src="path/to/image1.jpg" alt="Slide 1">'
++  },
++  {
++    content: '<img src="path/to/image2.jpg" alt="Slide 2">'
++  },
++  {
++    content: '<img src="path/to/image3.jpg" alt="Slide 3">'
++  }
++] %}
++
++{{ include('childtheme:slider', {
++  items: items
++}) }}
++```
++
++### With Custom Configuration
++
++```twig
++{% set items = [
++  {
++    content: '<img src="path/to/image1.jpg" alt="Slide 1">'
++  },
++  {
++    content: '<img src="path/to/image2.jpg" alt="Slide 2">'
++  },
++  {
++    content: '<img src="path/to/image3.jpg" alt="Slide 3">'
++  }
++] %}
++
++{{ include('childtheme:slider', {
++  items: items,
++  loop: true,
++  autoplay: true,
++  delay: 5000,
++  speed: 1000,
++  navigation: true,
++  pagination: true,
++  scrollbar: false,
++  itemsDesktop: 3,
++  itemsTablet: 2,
++  itemsMobile: 1
++}) }}
++```
++
++## Configuration Options
++
++| Option | Type | Default | Description |
++|--------|------|---------|-------------|
++| items | array | required | Array of items to display in the slider |
++| loop | boolean | false | Enable continuous loop mode |
++| speed | integer | 1500 | Duration of transition between slides (in ms) |
++| autoplay | boolean | false | Enable autoplay |
++| breakpointMobile | integer | 1 | Breakpoint for mobile devices |
++| itemsMobile | integer | 1 | Number of slides per view on mobile |
++| breakpointTablet | integer | 768 | Breakpoint for tablet devices |
++| itemsTablet | integer | 2 | Number of slides per view on tablet |
++| breakpointDesktop | integer | 1200 | Breakpoint for desktop devices |
++| itemsDesktop | integer | 3 | Number of slides per view on desktop |
++| navigation | boolean | true | Show navigation buttons |
++| delay | integer | 3000 | Delay between transitions in autoplay mode (in ms) |
++| pauseOnMouseEnter | boolean | true | Pause autoplay on mouse enter |
++| allowTouchMove | boolean | false | Allow touch move |
++| spaceBetween | integer | 24 | Space between slides |
++| pagination | boolean | true | Show pagination |
++| scrollbar | boolean | true | Show scrollbar |
++| clickablePagination | boolean | true | Make pagination clickable |
++| paginationType | string | bullets | Type of pagination (bullets, fraction, progressbar) |
++| spaceBetweenMobile | integer | 24 | Space between slides on mobile |
++| spaceBetweenTablet | integer | 24 | Space between slides on tablet |
++| spaceBetweenDesktop | integer | 24 | Space between slides on desktop |
++| effect | string | null | Transition effect (null, fade, slide, cube, coverflow, flip) |
++
++## Example with Views Integration
++
++To use this slider with Views, you can create a Views template that uses the slider component:
++
++1. Create a Views display with the content you want to show in the slider
++2. Create a Views template for your display (e.g., `views-view--your-view--your-display.html.twig`)
++3. Use the slider component in your template:
++
++```twig
++{# views-view--your-view--your-display.html.twig #}
++{% set slider_items = [] %}
++
++{% for row in rows %}
++  {% set slider_items = slider_items|merge([{
++    content: row.content
++  }]) %}
++{% endfor %}
++
++{{ include('childtheme:slider', {
++  items: slider_items,
++  loop: true,
++  autoplay: true,
++  navigation: true,
++  pagination: true
++}) }}
++```
++
++## Example with Paragraphs Integration
++
++To use this slider with Paragraphs, you can create a paragraph type for slides and then use the slider component in your paragraph template:
++
++1. Create a paragraph type for slides with fields for your slide content
++2. Create a paragraph type for the slider that references the slide paragraphs
++3. Create a template for your slider paragraph (e.g., `paragraph--slider.html.twig`)
++4. Use the slider component in your template:
++
++```twig
++{# paragraph--slider.html.twig #}
++{% set slider_items = [] %}
++
++{% for item in content.field_slides %}
++  {% if item['#paragraph'] is defined %}
++    {% set slider_items = slider_items|merge([{
++      content: item
++    }]) %}
++  {% endif %}
++{% endfor %}
++
++{{ include('childtheme:slider', {
++  items: slider_items,
++  loop: paragraph.field_loop.value,
++  autoplay: paragraph.field_autoplay.value,
++  navigation: paragraph.field_navigation.value,
++  pagination: paragraph.field_pagination.value
++}) }}
++```
+\ No newline at end of file
+diff --git a/modules/sc_swiper/components/slider/slider-example.html.twig b/modules/sc_swiper/components/slider/slider-example.html.twig
+new file mode 100644
+index 0000000..4b3c840
+--- /dev/null
++++ b/modules/sc_swiper/components/slider/slider-example.html.twig
+@@ -0,0 +1,98 @@
++{#
++/**
++ * @file
++ * Example usage of the slider component.
++ */
++#}
++
++<div class="slider-example">
++  <h2>Slider Component Example</h2>
++  
++  <div class="slider-container">
++    {% set example_items = [
++      {
++        content: '<div class="slide-content"><h3>Slide 1</h3><p>This is the first slide content.</p></div>'
++      },
++      {
++        content: '<div class="slide-content"><h3>Slide 2</h3><p>This is the second slide content.</p></div>'
++      },
++      {
++        content: '<div class="slide-content"><h3>Slide 3</h3><p>This is the third slide content.</p></div>'
++      },
++      {
++        content: '<div class="slide-content"><h3>Slide 4</h3><p>This is the fourth slide content.</p></div>'
++      },
++      {
++        content: '<div class="slide-content"><h3>Slide 5</h3><p>This is the fifth slide content.</p></div>'
++      }
++    ] %}
++    
++    <div class="slider-component">
++      {{ include('childtheme:slider', {
++        items: example_items,
++        loop: true,
++        autoplay: true,
++        delay: 3000,
++        speed: 1500,
++        navigation: true,
++        pagination: true,
++        scrollbar: true,
++        clickablePagination: true,
++        paginationType: 'bullets',
++        itemsDesktop: 3,
++        itemsTablet: 2,
++        itemsMobile: 1,
++        spaceBetween: 24,
++        spaceBetweenMobile: 24,
++        spaceBetweenTablet: 24,
++        spaceBetweenDesktop: 24,
++        allowTouchMove: true,
++        pauseOnMouseEnter: true,
++        effect: null
++      }) }}
++    </div>
++  </div>
++  
++  <div class="slider-example-styles">
++    <style>
++      .slider-example {
++        padding: 20px;
++        max-width: 1200px;
++        margin: 0 auto;
++      }
++      
++      .slider-example h2 {
++        text-align: center;
++        margin-bottom: 30px;
++      }
++      
++      .slider-container {
++        margin-bottom: 50px;
++      }
++      
++      .slide-content {
++        background-color: #f5f5f5;
++        padding: 30px;
++        border-radius: 8px;
++        text-align: center;
++        height: 200px;
++        display: flex;
++        flex-direction: column;
++        justify-content: center;
++        align-items: center;
++        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
++      }
++      
++      .slide-content h3 {
++        margin-top: 0;
++        margin-bottom: 15px;
++        color: #333;
++      }
++      
++      .slide-content p {
++        margin: 0;
++        color: #666;
++      }
++    </style>
++  </div>
++</div>
+\ No newline at end of file
+diff --git a/modules/sc_swiper/components/slider/slider.component.yml b/modules/sc_swiper/components/slider/slider.component.yml
+new file mode 100644
+index 0000000..d7fae7f
+--- /dev/null
++++ b/modules/sc_swiper/components/slider/slider.component.yml
+@@ -0,0 +1,142 @@
++name: Slider
++description: A slider component using Swiper
++libraryOverrides:
++  dependencies:
++    - core/drupal
++    - core/once
++    - sc_swiper/swiper
++props:
++  type: object
++  required:
++    - items
++  properties:
++    items:
++      type: array
++      title: Slider items
++      description: Array of items to display in the slider
++      items:
++        type: string
++        title: Content
++        description: Content to display in the slide
++    loop:
++      type: boolean
++      title: Loop
++      description: Enable continuous loop mode
++      default: false
++    speed:
++      type: integer
++      title: Speed
++      description: Duration of transition between slides (in ms)
++      default: 1500
++    autoplay:
++      type: boolean
++      title: Autoplay
++      description: Enable autoplay
++      default: false
++    navigation:
++      type: 'boolean'
++      title: Navigation
++      description: Show navigation buttons
++      default: true
++    delay:
++      type: integer
++      title: Delay
++      description: Delay between transitions in autoplay mode (in ms)
++      default: 3000
++    pauseOnMouseEnter:
++      type: boolean
++      title: Pause on Mouse Enter
++      description: Pause autoplay on mouse enter
++      default: true
++    allowTouchMove:
++      type: boolean
++      title: Allow Touch Move
++      description: Allow touch move
++      default: false
++    scrollbar:
++      type: boolean
++      title: Scrollbar
++      description: Show scrollbar
++      default: true
++    pagination:
++      type: boolean
++      title: Pagination
++      description: Show pagination
++      default: true
++    clickablePagination:
++      type: boolean
++      title: Clickable Pagination
++      description: Make pagination clickable
++      default: true
++    paginationType:
++      type: string
++      title: Pagination Type
++      description: Type of pagination
++      default: bullets
++      enum:
++        - bullets
++        - fraction
++        - progressbar
++    effect:
++      type: ['string', 'null']
++      title: Effect
++      description: Transition effect
++      default: null
++      enum:
++        - null
++        - fade
++        - slide
++        - cube
++        - coverflow
++        - flip
++    spaceBetween:
++      type: integer
++      title: Space Between
++      description: Space between slides
++      default: 24
++    # Breakpoints.
++    spaceBetweenMobile:
++      type: integer
++      title: Space Between on Mobile
++      description: Space between slides on mobile
++      default: 24
++    spaceBetweenTablet:
++      type: integer
++      title: Space Between on Tablet
++      description: Space between slides on tablet
++      default: 24
++    spaceBetweenDesktop:
++      type: integer
++      title: Space Between on Desktop
++      description: Space between slides on desktop
++      default: 24
++    breakpointMobile:
++      type: integer
++      title: Mobile Breakpoint
++      description: Breakpoint for mobile devices
++      default: 1
++    itemsMobile:
++      type: integer
++      title: Items on Mobile
++      description: Number of slides per view on mobile
++      default: 1
++    breakpointTablet:
++      type: integer
++      title: Tablet Breakpoint
++      description: Breakpoint for tablet devices
++      default: 768
++    itemsTablet:
++      type: integer
++      title: Items on Tablet
++      description: Number of slides per view on tablet
++      default: 2
++    breakpointDesktop:
++      type: integer
++      title: Desktop Breakpoint
++      description: Breakpoint for desktop devices
++      default: 1200
++    itemsDesktop:
++      type: integer
++      title: Items on Desktop
++      description: Number of slides per view on desktop
++      default: 3
+diff --git a/modules/sc_swiper/components/slider/slider.css b/modules/sc_swiper/components/slider/slider.css
+new file mode 100644
+index 0000000..0ea3216
+--- /dev/null
++++ b/modules/sc_swiper/components/slider/slider.css
+@@ -0,0 +1 @@
++.slider-component{--swiper-pagination-bottom:0;position:relative;width:100%;overflow:hidden}@media (max-width:991.98px){.slider-component .swiper-button-next,.slider-component .swiper-button-prev{display:none}}.slider-component .swiper-slide>*{width:100%}.slider-component.swiper-inactive .swiper-button-next,.slider-component.swiper-inactive .swiper-button-prev{display:none}.slider-component.swiper-inactive .swiper-pagination{display:none}.slider-component:not(.swiper-inactive){--pd-slider-nav-padding:0;padding:0 var(--pd-slider-nav-padding,0) 2.5rem}@media (min-width:992px){.slider-component:not(.swiper-inactive){--pd-slider-nav-padding:4.5rem}}.slider-component:not(.swiper-inactive) .swiper-slide::after{content:"";background:0 0;width:100%;height:100%;min-height:1px;position:absolute;top:0;left:0;z-index:9;clip-path:polygon(0 15%,100% 15%,100% 90%,0 90%,0 15%,42% 25%,42% 61%,59% 61%,59% 45%,25% 45%)}.slider-component:not(.swiper-inactive) .swiper-button{top:0;width:var(--pd-slider-nav-padding,4.5rem);height:calc(100% - 2.5rem);margin-top:0;opacity:1;background-color:var(--bs-body-bg)}.slider-component:not(.swiper-inactive) .swiper-button:before{content:"";position:absolute;width:3rem;height:3rem;transition:all .15s ease-in-out;background-color:var(--pd-slider-btn-color,var(--bs-primary));border-radius:.5rem}.slider-component:not(.swiper-inactive) .swiper-button:after{position:absolute;top:50%;right:0;width:3rem;height:2rem;content:"";transition:all .15s ease-in-out;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:1.75rem;mask-size:1.75rem;translate:.0625rem -50%;background-color:var(--pd-slider-bg-color,#212529)}.slider-component:not(.swiper-inactive) .swiper-button-prev,.slider-component:not(.swiper-inactive) .swiper-button-prev:after,.slider-component:not(.swiper-inactive) .swiper-button-prev:before{left:0}.slider-component:not(.swiper-inactive) .swiper-button-prev:after{-webkit-mask-image:url(/themes/custom/childtheme/img/icons/chevron-left.svg);mask-image:url(/themes/custom/childtheme/img/icons/chevron-left.svg)}.slider-component:not(.swiper-inactive) .swiper-button-next,.slider-component:not(.swiper-inactive) .swiper-button-next:after,.slider-component:not(.swiper-inactive) .swiper-button-next:before{right:0}.slider-component:not(.swiper-inactive) .swiper-button-next:after{-webkit-mask-image:url(/themes/custom/childtheme/img/icons/chevron-right.svg);mask-image:url(/themes/custom/childtheme/img/icons/chevron-right.svg)}.slider-component .swiper-pagination{display:flex;justify-content:center;margin-top:1.1111111111rem;padding-top:10px;padding-bottom:10px}.slider-component .swiper-pagination .swiper-pagination-bullet{position:relative;width:var(--pd-indicator-width,1.66666666rem);height:var(--pd-indicator-height,.277777777rem);margin-right:var(--pd-carousel-indicator-spacer,.55555555rem);margin-left:var(--pd-carousel-indicator-spacer,.55555555rem);padding:0;transition:opacity .6s ease;opacity:.5;border:var(--pd-indicator-border,unset);border-radius:var(--pd-indicator-border-radius,.5rem);background-color:var(--pd-indicator-bg,rgba(222,226,230,.75))}.slider-component .swiper-pagination .swiper-pagination-bullet:focus,.slider-component .swiper-pagination .swiper-pagination-bullet:hover{opacity:1}.slider-component .swiper-pagination .swiper-pagination-bullet::after{position:absolute;top:50%;left:50%;display:block;width:calc(var(--pd-indicator-width,1.66666666rem) + 2 * var(--pd-carousel-indicator-spacer,.55555555rem));height:calc(var(--pd-indicator-height,.277777777rem) + 2 * 10px);content:"";transform:translate(-50%,-50%)}.slider-component .swiper-pagination .swiper-pagination-bullet.swiper-pagination-bullet-active{--pd-indicator-bg:var(--pd-indicator-active-bg, #009CDE);opacity:1}
+\ No newline at end of file
+diff --git a/modules/sc_swiper/components/slider/slider.js b/modules/sc_swiper/components/slider/slider.js
+new file mode 100644
+index 0000000..72a1a68
+--- /dev/null
++++ b/modules/sc_swiper/components/slider/slider.js
+@@ -0,0 +1,101 @@
++/**
++ * @file
++ * JavaScript for the slider component.
++ */
++(function (Drupal, once) {
++
++  'use strict';
++
++  /**
++   * Initialize the slider component.
++   *
++   * @type {Drupal~behavior}
++   */
++  Drupal.behaviors.sliderComponent = {
++    attach: function (context, settings) {
++      once('slider-component', '.slider-component', context)
++        .forEach(function (slider) {
++          // Get the slider configuration from the data attribute.
++          const config = JSON.parse(slider.getAttribute('data-swiper'));
++          // Initialize Swiper with the configuration.
++          new Swiper(slider, Drupal.behaviors.sliderComponent.prepareConfigs(slider, config));
++        });
++    },
++    prepareConfigs(slider, config) {
++      return {
++        // Core settings
++        loop: config.loop,
++        speed: config.speed,
++        spaceBetween: config.spaceBetween,
++        allowTouchMove: config.allowTouchMove,
++        effect: config.effect,
++        ...(config.effect === 'fade' ? {fadeEffect: {crossFade: true}} : {}),
++
++        // Autoplay settings
++        autoplay: config.autoplay ? {
++          delay: config.delay,
++          disableOnInteraction: false,
++          pauseOnMouseEnter: config.pauseOnMouseEnter
++        } : false,
++
++        // Navigation settings
++        navigation: config.navigation ? {
++          nextEl: slider.querySelector('.swiper-button-next'),
++          prevEl: slider.querySelector('.swiper-button-prev'),
++        } : false,
++
++        // Pagination settings
++        pagination: config.pagination ? {
++          el: slider.querySelector('.swiper-pagination'),
++          type: config.paginationType,
++          clickable: config.clickablePagination
++        } : false,
++
++        // Scrollbar settings
++        scrollbar: config.scrollbar ? {
++          el: '.swiper-scrollbar',
++          draggable: true
++        } : false,
++
++        // Responsive breakpoints
++        breakpoints: {
++          // Mobile
++          [config.breakpointMobile]: {
++            slidesPerView: config.itemsMobile,
++            spaceBetween: config.spaceBetweenMobile
++          },
++          // Tablet
++          [config.breakpointTablet]: {
++            slidesPerView: config.itemsTablet,
++            spaceBetween: config.spaceBetweenTablet
++          },
++          // Desktop
++          [config.breakpointDesktop]: {
++            slidesPerView: config.itemsDesktop,
++            spaceBetween: config.spaceBetweenDesktop
++          }
++        },
++        // Events
++        on: {
++          init: function () {
++            // Add class if there's only one slide or fewer slides than slidesPerView
++            if (this.slides.length <= this.params.slidesPerView) {
++              slider.classList.add('swiper-inactive');
++            }
++          },
++          resize: function () {
++            // Check if slider should be inactive on resize
++            slider.classList.toggle('swiper-inactive', this.slides.length <= this.params.slidesPerView);
++          },
++          slideChangeTransitionStart: function () {
++            slider.classList.add('swiper-transition');
++          },
++          slideChangeTransitionEnd: function () {
++            slider.classList.remove('swiper-transition');
++          }
++        }
++      }
++    }
++  };
++
++})(Drupal, once);
+\ No newline at end of file
+diff --git a/modules/sc_swiper/components/slider/slider.scss b/modules/sc_swiper/components/slider/slider.scss
+new file mode 100644
+index 0000000..e638f7d
+--- /dev/null
++++ b/modules/sc_swiper/components/slider/slider.scss
+@@ -0,0 +1,152 @@
++/**
++ * @file
++ * Styles for the slider component.
++ */
++
++@import "../../../../../../../../vendor/twbs/bootstrap/scss/functions";
++
++// Default variable overrides
++@import "../../../../../../../themes/custom/childtheme/scss/variables";
++@import "../../../../../../../../vendor/twbs/bootstrap/scss/variables";
++@import "../../../../../../../../vendor/twbs/bootstrap/scss/maps";
++@import "../../../../../../../../vendor/twbs/bootstrap/scss/mixins";
++@import "../../../../../../../themes/custom/childtheme/scss/mixins";
++@import "../../../../../../../themes/custom/childtheme/scss/functions";
++
++.slider-component {
++  --swiper-pagination-bottom: 0;
++  position: relative;
++  width: 100%;
++  overflow: hidden;
++  @include media-breakpoint-down(lg) {
++    .swiper-button-prev,
++    .swiper-button-next {
++      display: none;
++    }
++  }
++  .swiper-slide {
++    > * {
++      width: 100%;
++    }
++  }
++  &.swiper-inactive {
++    .swiper-button-prev,
++    .swiper-button-next {
++      display: none;
++    }
++    .swiper-pagination {
++      display: none;
++    }
++  }
++  &:not(.swiper-inactive) {
++    --pd-slider-nav-padding: 0;
++    @include media-breakpoint-up(lg) {
++      --pd-slider-nav-padding: 4.5rem;
++    }
++    padding: 0 var(--pd-slider-nav-padding, 0) 2.5rem;
++    .swiper-slide {
++      /* Need to make swipe event working for iframes inside */
++      &::after {
++        content: "";
++        background: transparent;
++        width: 100%;
++        height: 100%;
++        min-height: 1px;
++        position: absolute;
++        top: 0;
++        left: 0;
++        z-index: 9;
++        clip-path: polygon(0 15%, 100% 15%, 100% 90%, 0 90%, 0 15%, 42% 25%, 42% 61%, 59% 61%, 59% 45%, 25% 45%);
++      }
++    }
++    .swiper-button {
++      top: 0;
++      width: var(--pd-slider-nav-padding, 4.5rem);
++      height: calc(100% - 2.5rem);
++      margin-top: 0;
++      opacity: 1;
++      background-color: var(--bs-body-bg);
++      &:before {
++        content: "";
++        position: absolute;
++        width: 3rem;
++        height: 3rem;
++        transition: all .15s ease-in-out;
++        background-color: var(--pd-slider-btn-color, var(--bs-primary));
++        border-radius: .5rem;
++      }
++      &:after {
++        position: absolute;
++        top: 50%;
++        right: 0;
++        width: 3rem;
++        height: 2rem;
++        content: "";
++        transition: all .15s ease-in-out;
++        mask-repeat: no-repeat;
++        mask-position: center;
++        mask-size: 1.75rem;
++        translate: .0625rem -50%;
++        background-color: var(--pd-slider-bg-color, #{$gray-900});
++      }
++      &-prev {
++        &,
++        &:before,
++        &:after {
++          left: 0;
++        }
++        &:after {
++          mask-image: url(/themes/custom/childtheme/img/icons/chevron-left.svg);
++        }
++      }
++      &-next {
++        &,
++        &:before,
++        &:after {
++          right: 0;
++        }
++        &:after {
++          mask-image: url(/themes/custom/childtheme/img/icons/chevron-right.svg);
++        }
++      }
++    }
++  }
++  .swiper-pagination {
++    display: flex;
++    justify-content: center;
++    margin-top: px-to-rem(20px);
++    padding-top: #{$carousel-indicator-hit-area-height};
++    padding-bottom: #{$carousel-indicator-hit-area-height};
++    .swiper-pagination-bullet {
++      position: relative;
++      width: var(--pd-indicator-width, #{$carousel-indicator-width});
++      height: var(--pd-indicator-height, #{$carousel-indicator-height});
++      margin-right: var(--pd-carousel-indicator-spacer, #{$carousel-indicator-spacer});
++      margin-left: var(--pd-carousel-indicator-spacer, #{$carousel-indicator-spacer});
++      padding: 0;
++      transition: $carousel-indicator-transition;
++      opacity: $carousel-indicator-opacity;
++      border: var(--pd-indicator-border, unset);
++      border-radius: var(--pd-indicator-border-radius, .5rem);
++      background-color: var(--pd-indicator-bg, #{rgba($gray-300, .75)});
++      &:hover,
++      &:focus {
++        opacity: $carousel-indicator-active-opacity;
++      }
++      &::after {
++        position: absolute;
++        top: 50%;
++        left: 50%;
++        display: block;
++        width: calc(var(--pd-indicator-width, #{$carousel-indicator-width}) + (2 * var(--pd-carousel-indicator-spacer, #{$carousel-indicator-spacer})));
++        height: calc(var(--pd-indicator-height, #{$carousel-indicator-height}) + (2 * #{$carousel-indicator-hit-area-height}));
++        content: "";
++        transform: translate(-50%, -50%);
++      }
++      &.swiper-pagination-bullet-active {
++        --pd-indicator-bg: var(--pd-indicator-active-bg, #{$carousel-indicator-active-bg});
++        opacity: $carousel-indicator-active-opacity;
++      }
++    }
++  }
++}
+diff --git a/modules/sc_swiper/components/slider/slider.twig b/modules/sc_swiper/components/slider/slider.twig
+new file mode 100644
+index 0000000..d032912
+--- /dev/null
++++ b/modules/sc_swiper/components/slider/slider.twig
+@@ -0,0 +1,86 @@
++{#
++/**
++ * @file
++ * Slider component using Swiper.
++ *
++ * Available variables:
++ * - items: Array of items to display in the slider.
++ * - loop: Enable continuous loop mode.
++ * - speed: Duration of transition between slides (in ms).
++ * - autoplay: Enable autoplay.
++ * - breakpointMobile: Breakpoint for mobile devices.
++ * - itemsMobile: Number of slides per view on mobile.
++ * - breakpointTablet: Breakpoint for tablet devices.
++ * - itemsTablet: Number of slides per view on tablet.
++ * - breakpointDesktop: Breakpoint for desktop devices.
++ * - itemsDesktop: Number of slides per view on desktop.
++ * - navigation: Show navigation buttons.
++ * - delay: Delay between transitions in autoplay mode (in ms).
++ * - pauseOnMouseEnter: Pause autoplay on mouse enter.
++ * - allowTouchMove: Allow touch move.
++ * - spaceBetween: Space between slides.
++ * - pagination: Show pagination.
++ * - scrollbar: Show scrollbar.
++ * - clickablePagination: Make pagination clickable.
++ * - paginationType: Type of pagination.
++ * - spaceBetweenMobile: Space between slides on mobile.
++ * - spaceBetweenTablet: Space between slides on tablet.
++ * - spaceBetweenDesktop: Space between slides on desktop.
++ * - effect: Transition effect.
++ */
++#}
++
++{% set slider_id = 'slider-' ~ random() %}
++{% set slider_config = {
++  'loop': loop|default(TRUE),
++  'speed': speed|default(1000),
++  'autoplay': autoplay|default(FALSE),
++  'breakpointMobile': breakpointMobile|default(0),
++  'itemsMobile': itemsMobile|default(1),
++  'breakpointTablet': breakpointTablet|default(768),
++  'itemsTablet': itemsTablet|default(2),
++  'breakpointDesktop': breakpointDesktop|default(992),
++  'itemsDesktop': itemsDesktop|default(3),
++  'navigation': navigation|default(TRUE),
++  'delay': delay|default(3000),
++  'pauseOnMouseEnter': pauseOnMouseEnter|default(TRUE),
++  'allowTouchMove': allowTouchMove|default(TRUE),
++  'spaceBetween': spaceBetween|default(24),
++  'pagination': pagination|default(TRUE),
++  'scrollbar': scrollbar|default(FALSE),
++  'clickablePagination': clickablePagination|default(TRUE),
++  'paginationType': paginationType|default('bullets'),
++  'spaceBetweenMobile': spaceBetweenMobile|default(24),
++  'spaceBetweenTablet': spaceBetweenTablet|default(24),
++  'spaceBetweenDesktop': spaceBetweenDesktop|default(24),
++  'effect': effect|default('slide')
++} %}
++
++{% set title_tag = title_tag|default('h3') %}
++
++{% if attributes is empty %}
++  {% set attributes = create_attribute() %}
++{% endif %}
++
++<div {{ attributes.addClass('slider-component').setAttribute('id', slider_id).setAttribute('data-swiper', slider_config|json_encode) }}">
++  <div class="swiper-wrapper">
++    {% for item in items %}
++      <div class="swiper-slide">
++        {{ item|raw }}
++      </div>
++    {% endfor %}
++  </div>
++  
++  {% if navigation %}
++    <div class="swiper-button swiper-button-prev"></div>
++    <div class="swiper-button swiper-button-next"></div>
++  {% endif %}
++
++  {% if pagination %}
++    <div class="swiper-pagination"></div>
++  {% endif %}
++  
++  {% if scrollbar %}
++    <div class="swiper-scrollbar"></div>
++  {% endif %}
++</div>
+\ No newline at end of file
+diff --git a/modules/sc_swiper/config/schema/sc_swiper.schema.yml b/modules/sc_swiper/config/schema/sc_swiper.schema.yml
+new file mode 100644
+index 0000000..42db17b
+--- /dev/null
++++ b/modules/sc_swiper/config/schema/sc_swiper.schema.yml
+@@ -0,0 +1,99 @@
++swiper_base:
++  type: field.formatter.settings.entity_reference_entity_view
++  mapping:
++    loop:
++      type: boolean
++      title: Loop
++      description: Enable continuous loop mode
++    speed:
++      type: integer
++      title: Speed
++      description: Duration of transition between slides (in ms)
++    autoplay:
++      type: boolean
++      title: Autoplay
++      description: Enable autoplay
++    navigation:
++      type: boolean
++      title: Navigation
++      description: Show navigation buttons
++    delay:
++      type: integer
++      title: Delay
++      description: Delay between transitions in autoplay mode (in ms)
++    pauseOnMouseEnter:
++      type: boolean
++      title: Pause on Mouse Enter
++      description: Pause autoplay on mouse enter
++    allowTouchMove:
++      type: boolean
++      title: Allow Touch Move
++      description: Allow touch move
++    scrollbar:
++      type: boolean
++      title: Scrollbar
++      description: Show scrollbar
++    pagination:
++      type: boolean
++      title: Pagination
++      description: Show pagination
++    clickablePagination:
++      type: boolean
++      title: Clickable Pagination
++      description: Make pagination clickable
++    paginationType:
++      type: string
++      title: Pagination Type
++      description: Type of pagination
++    effect:
++      type: string
++      title: Effect
++      description: Transition effect
++    spaceBetween:
++      type: integer
++      title: Space Between
++      description: Space between slides
++    spaceBetweenMobile:
++      type: integer
++      title: Space Between on Mobile
++      description: Space between slides on mobile
++    spaceBetweenTablet:
++      type: integer
++      title: Space Between on Tablet
++      description: Space between slides on tablet
++    spaceBetweenDesktop:
++      type: integer
++      title: Space Between on Desktop
++      description: Space between slides on desktop
++    breakpointMobile:
++      type: integer
++      title: Mobile Breakpoint
++      description: Breakpoint for mobile devices
++    itemsMobile:
++      type: integer
++      title: Items on Mobile
++      description: Number of slides per view on mobile
++    breakpointTablet:
++      type: integer
++      title: Tablet Breakpoint
++      description: Breakpoint for tablet devices
++    itemsTablet:
++      type: integer
++      title: Items on Tablet
++      description: Number of slides per view on tablet
++    breakpointDesktop:
++      type: integer
++      title: Desktop Breakpoint
++      description: Breakpoint for desktop devices
++    itemsDesktop:
++      type: integer
++      title: Items on Desktop
++      description: Number of slides per view on desktop
++
++field.formatter.settings.swiper_entity_reference:
++  type: swiper_base
++  label: 'Swiper rendered entity'
++
++field.formatter.settings.swiper_entity_reference_revisions:
++  type: swiper_base
++  label: 'Swiper rendered entity'
+diff --git a/modules/sc_swiper/config/schema/sc_swiper.views.schema.yml b/modules/sc_swiper/config/schema/sc_swiper.views.schema.yml
+new file mode 100644
+index 0000000..0f3ddb0
+--- /dev/null
++++ b/modules/sc_swiper/config/schema/sc_swiper.views.schema.yml
+@@ -0,0 +1,92 @@
++views.style.sc_swiper:
++  type: views_style
++  label: 'Swiper'
++  mapping:
++    loop:
++      type: boolean
++      title: Loop
++      description: Enable continuous loop mode
++    speed:
++      type: integer
++      title: Speed
++      description: Duration of transition between slides (in ms)
++    autoplay:
++      type: boolean
++      title: Autoplay
++      description: Enable autoplay
++    navigation:
++      type: boolean
++      title: Navigation
++      description: Show navigation buttons
++    delay:
++      type: integer
++      title: Delay
++      description: Delay between transitions in autoplay mode (in ms)
++    pauseOnMouseEnter:
++      type: boolean
++      title: Pause on Mouse Enter
++      description: Pause autoplay on mouse enter
++    allowTouchMove:
++      type: boolean
++      title: Allow Touch Move
++      description: Allow touch move
++    scrollbar:
++      type: boolean
++      title: Scrollbar
++      description: Show scrollbar
++    pagination:
++      type: boolean
++      title: Pagination
++      description: Show pagination
++    clickablePagination:
++      type: boolean
++      title: Clickable Pagination
++      description: Make pagination clickable
++    paginationType:
++      type: string
++      title: Pagination Type
++      description: Type of pagination
++    effect:
++      type: string
++      title: Effect
++      description: Transition effect
++    spaceBetween:
++      type: integer
++      title: Space Between
++      description: Space between slides
++    spaceBetweenMobile:
++      type: integer
++      title: Space Between on Mobile
++      description: Space between slides on mobile
++    spaceBetweenTablet:
++      type: integer
++      title: Space Between on Tablet
++      description: Space between slides on tablet
++    spaceBetweenDesktop:
++      type: integer
++      title: Space Between on Desktop
++      description: Space between slides on desktop
++    breakpointMobile:
++      type: integer
++      title: Mobile Breakpoint
++      description: Breakpoint for mobile devices
++    itemsMobile:
++      type: integer
++      title: Items on Mobile
++      description: Number of slides per view on mobile
++    breakpointTablet:
++      type: integer
++      title: Tablet Breakpoint
++      description: Breakpoint for tablet devices
++    itemsTablet:
++      type: integer
++      title: Items on Tablet
++      description: Number of slides per view on tablet
++    breakpointDesktop:
++      type: integer
++      title: Desktop Breakpoint
++      description: Breakpoint for desktop devices
++    itemsDesktop:
++      type: integer
++      title: Items on Desktop
++      description: Number of slides per view on desktop
+diff --git a/modules/sc_swiper/js/swiper-init.js b/modules/sc_swiper/js/swiper-init.js
+deleted file mode 100755
+index 575522e..0000000
+--- a/modules/sc_swiper/js/swiper-init.js
++++ /dev/null
+@@ -1,15 +0,0 @@
+-/**
+- * JS behavior for Swiper slider.
+- */
+-
+-(function (Drupal, Swiper) {
+-  Drupal.behaviors.sliderCollectionSwiper = {
+-    attach(context) {
+-      once('swiperInit', '.swiper', context).forEach((slider) => {
+-        var options = JSON.parse(slider.getAttribute('data-swiper'));
+-
+-        new Swiper(slider, options);
+-      });
+-    },
+-  };
+-}(Drupal, Swiper));
+diff --git a/modules/sc_swiper/sc_swiper.libraries.yml b/modules/sc_swiper/sc_swiper.libraries.yml
+index 6f0d817..c5ca5ad 100755
+--- a/modules/sc_swiper/sc_swiper.libraries.yml
++++ b/modules/sc_swiper/sc_swiper.libraries.yml
+@@ -1,17 +1,3 @@
+-swiper-views:
+-  version: VERSION
+-  dependencies:
+-    - sc_swiper/swiper-init
+-
+-swiper-init:
+-  version: VERSION
+-  js:
+-    js/swiper-init.js: {}
+-  dependencies:
+-    - core/drupal
+-    - core/once
+-    - sc_swiper/swiper
+-
+ swiper:
+   version: VERSION
+   js:
+diff --git a/modules/sc_swiper/sc_swiper.module b/modules/sc_swiper/sc_swiper.module
+index 7746ef6..943ff68 100755
+--- a/modules/sc_swiper/sc_swiper.module
++++ b/modules/sc_swiper/sc_swiper.module
+@@ -60,8 +60,8 @@ function template_preprocess_swiper_views(array &$variables) {
+   \Drupal::service('event_dispatcher')
+     ->dispatch(new AlterViewSettingsEvent($options, $variables['view']), SliderCollectionEvents::ALTER_VIEW_SETTINGS);
+ 
+-
+-  _sc_swiper_process_swiper($variables, $options);
++  $variables['settings'] = \Drupal::service('sc_swiper.swiper')
++    ->formattedSettings($options);
+ 
+   template_preprocess_views_view_unformatted($variables);
+ }
+@@ -78,34 +78,6 @@ function template_preprocess_swiper_entity_formatter(array &$variables) {
+   \Drupal::service('event_dispatcher')
+     ->dispatch(new AlterEntitySettingsEvent($options, $variables['object']), SliderCollectionEvents::ALTER_ENTITY_SETTINGS);
+ 
+-  _sc_swiper_process_swiper($variables, $variables['settings']);
+-}
+-
+-/**
+- * Process swiper element.
+- *
+- * @param array $variables
+- *   Array with variables.
+- * @param array $options
+- *   Swiper options.
+- */
+-function _sc_swiper_process_swiper(array &$variables, array $options) {
+-  $swiper = \Drupal::service('sc_swiper.swiper');
+-  $settings = $swiper->formattedSettings($options);
+-
+-  // Used JSON_FORCE_OBJECT to force the numbers
+-  // in the $settings array keys.
+-  $variables['id'] = 'swiper';
+-  $variables['attributes']['id'] = Html::getUniqueId('swiper-' . Crypt::randomBytesBase64(8));
+-  $variables['attributes']['data-swiper'] = json_encode($settings, JSON_FORCE_OBJECT);
+-  $variables['attributes']['class'][] = 'swiper';
+-
+-  $variables['scrollbar'] = (bool) $settings['scrollbar'];
+-  $variables['navigation'] = (bool) $settings['navigation'];
+-  $variables['pagination'] = (bool) $settings['pagination'];
+-
+-  $attached = [
+-    '#attached' => ['library' => ['sc_swiper/swiper-views']],
+-  ];
+-  \Drupal::service('renderer')->render($attached);
++  $variables['settings'] = \Drupal::service('sc_swiper.swiper')
++    ->formattedSettings($variables['settings']);
+ }
+diff --git a/modules/sc_swiper/sc_swiper.post_update.php b/modules/sc_swiper/sc_swiper.post_update.php
+new file mode 100755
+index 0000000..2f06b80
+--- /dev/null
++++ b/modules/sc_swiper/sc_swiper.post_update.php
+@@ -0,0 +1,95 @@
++<?php
++
++/**
++ * @file
++ * Post update functions for Slider Collection Swiper module.
++ */
++
++use Drupal\Core\Config\Entity\ConfigEntityUpdater;
++use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
++use Drupal\views\ViewEntityInterface;
++
++/**
++ * Post update to have view style configuration in the same format (camelCase).
++ */
++function sc_swiper_post_update_view_style_fields_key_update(?array &$sandbox = NULL): void {
++  \Drupal::classResolver(ConfigEntityUpdater::class)->update($sandbox, 'view', function (ViewEntityInterface $view): bool {
++    $changed = FALSE;
++    $displays = $view->get('display');
++    foreach ($displays as &$display) {
++      if (
++        isset($display['display_options']['style']) &&
++        $display['display_options']['style']['type'] === 'sc_swiper' &&
++        !empty($display['display_options']['style']['options'])
++      ) {
++        $settings = &$display['display_options']['style']['options'];
++        $changed = _sc_swiper_update_configs_to_camel_case($settings);
++      }
++    }
++
++    if ($changed) {
++      $view->set('display', $displays);
++    }
++
++    return $changed;
++  });
++}
++
++/**
++ * Post update to have swiper configuration in the same format (camelCase).
++ */
++function sc_swiper_post_update_formatter_fields_key_update(?array &$sandbox = NULL): void {
++  \Drupal::classResolver(ConfigEntityUpdater::class)
++    ->update($sandbox, 'entity_view_display', function (EntityViewDisplayInterface $display) {
++      $components = $display->getComponents();
++
++      foreach ($components as $field_name => $component) {
++        if (isset($component['type']) &&
++          in_array($component['type'], [
++            'swiper_entity_reference',
++            'swiper_entity_reference_revisions',
++          ]) &&
++          !empty($component['settings'])
++        ) {
++          $settings = &$component['settings'];
++          if (_sc_swiper_update_configs_to_camel_case($settings)) {
++            $display->setComponent($field_name, $component);
++            $changed = TRUE;
++          }
++        }
++      }
++
++      return $changed ?? FALSE;
++    });
++}
++
++/**
++ * Helper function to update Swiper settings to use camelCase keys.
++ *
++ * @param array $settings
++ *   The settings array to update.
++ *
++ * @return bool
++ *   TRUE if any changes were made, FALSE otherwise.
++ */
++function _sc_swiper_update_configs_to_camel_case(array &$settings) {
++  $mapping = [
++    'clickable_pagination' => 'clickablePagination',
++    'pagination_type' => 'paginationType',
++  ];
++  foreach ($mapping as $old_key => $new_key) {
++    if (isset($settings[$old_key])) {
++      $settings[$new_key] = $settings[$old_key];
++      unset($settings[$old_key]);
++      $changed = TRUE;
++    }
++  }
++
++  // Convert empty string values to NULL for effect property.
++  if ($settings['effect'] === '') {
++    $settings['effect'] = 'slide';
++    $changed = TRUE;
++  }
++
++  return $changed ?? FALSE;
++}
+diff --git a/modules/sc_swiper/src/Plugin/Field/FieldFormatter/SwiperFormatterTrait.php b/modules/sc_swiper/src/Plugin/Field/FieldFormatter/SwiperFormatterTrait.php
+index 25bdcdd..81153e2 100644
+--- a/modules/sc_swiper/src/Plugin/Field/FieldFormatter/SwiperFormatterTrait.php
++++ b/modules/sc_swiper/src/Plugin/Field/FieldFormatter/SwiperFormatterTrait.php
+@@ -117,7 +117,7 @@ trait SwiperFormatterTrait {
+       '#type' => 'select',
+       '#title' => $this->t('Effect'),
+       '#options' => [
+-        NULL => $this->t('Default'),
++        'slide' => $this->t('Default (slide)'),
+         'fade' => $this->t('Fade'),
+         'coverflow' => $this->t('Coverflow'),
+         'flip' => $this->t('Flip'),
+@@ -127,16 +127,16 @@ trait SwiperFormatterTrait {
+       '#default_value' => $this->getSetting('effect'),
+       '#description' => $this->t('Option to customize slide effect.<br>You can also set the effect options by subscribing to AlterSettingsEvent.'),
+     ];
+-    $elements['clickable_pagination'] = [
++    $elements['clickablePagination'] = [
+       '#type' => 'checkbox',
+       '#title' => $this->t('Clickable Pagination'),
+-      '#default_value' => $this->getSetting('clickable_pagination'),
++      '#default_value' => $this->getSetting('clickablePagination'),
+       '#description' => $this->t('Option to make pagination clickable.'),
+     ];
+-    $elements['pagination_type'] = [
++    $elements['paginationType'] = [
+       '#type' => 'select',
+       '#title' => $this->t('Pagination type'),
+-      '#default_value' => $this->getSetting('pagination_type'),
++      '#default_value' => $this->getSetting('paginationType'),
+       '#options' => [
+         'progressbar' => $this->t('Progressbar'),
+         'bullets' => $this->t('Bullets'),
+@@ -211,8 +211,8 @@ trait SwiperFormatterTrait {
+       'spaceBetween' => $this->t('Space between'),
+       'pagination' => $this->t('Pagination'),
+       'scrollbar' => $this->t('Scrollbar'),
+-      'clickable_pagination' => $this->t('Clickable Pagination'),
+-      'pagination_type' => $this->t('Pagination type'),
++      'clickablePagination' => $this->t('Clickable Pagination'),
++      'paginationType' => $this->t('Pagination type'),
+       'spaceBetweenMobile' => $this->t('Space between slides on Mobile'),
+       'spaceBetweenTablet' => $this->t('Space between slides on Tablet'),
+       'spaceBetweenDesktop' => $this->t('Space between slides on Desktop'),
+@@ -230,11 +230,6 @@ trait SwiperFormatterTrait {
+ 
+     foreach ($properties as $property => $name) {
+       $value = $this->getSetting($property);
+-
+-      if (!$value && $property === 'effect') {
+-        $value = $this->t('Default');
+-      }
+-
+       $settings[] = "{$name->render()}: {$value}";
+     }
+ 
+diff --git a/modules/sc_swiper/src/Plugin/views/style/Swiper.php b/modules/sc_swiper/src/Plugin/views/style/Swiper.php
+index 44a7207..9cf1eae 100755
+--- a/modules/sc_swiper/src/Plugin/views/style/Swiper.php
++++ b/modules/sc_swiper/src/Plugin/views/style/Swiper.php
+@@ -72,7 +72,7 @@ class Swiper extends SliderCollectionViewsStyleBase {
+       '#type' => 'select',
+       '#title' => $this->t('Effect'),
+       '#options' => [
+-        NULL => $this->t('Default'),
++        'slide' => $this->t('Default (slide)'),
+         'fade' => $this->t('Fade'),
+         'coverflow' => $this->t('Coverflow'),
+         'flip' => $this->t('Flip'),
+@@ -82,16 +82,16 @@ class Swiper extends SliderCollectionViewsStyleBase {
+       '#default_value' => $this->options['effect'],
+       '#description' => $this->t('Option to customize slide effect.<br>You can also set the effect options by subscribing to AlterSettingsEvent.'),
+     ];
+-    $form['clickable_pagination'] = [
++    $form['clickablePagination'] = [
+       '#type' => 'checkbox',
+       '#title' => $this->t('Clickable Pagination'),
+-      '#default_value' => $this->options['clickable_pagination'],
++      '#default_value' => $this->options['clickablePagination'],
+       '#description' => $this->t('Option to make pagination clickable.'),
+     ];
+-    $form['pagination_type'] = [
++    $form['paginationType'] = [
+       '#type' => 'select',
+       '#title' => $this->t('Pagination type'),
+-      '#default_value' => $this->options['pagination_type'],
++      '#default_value' => $this->options['paginationType'],
+       '#options' => [
+         'progressbar' => $this->t('Progressbar'),
+         'bullets' => $this->t('Bullets'),
+@@ -164,4 +164,19 @@ class Swiper extends SliderCollectionViewsStyleBase {
+     return $this->swiper->formattedSettings($this->getDefaultSettings());
+   }
+ 
++  /**
++   * {@inheritdoc}
++   */
++  public function submitOptionsForm(&$form, FormStateInterface $form_state) {
++    parent::submitOptionsForm($form, $form_state);
++
++    // Get the style options from the form state.
++    $options = &$form_state->getValue('style_options');
++
++    // If the effect is not set, we set it to NULL.
++    if (empty($options['effect'])) {
++      $options['effect'] = NULL;
++    }
++  }
++
+ }
+diff --git a/modules/sc_swiper/src/SwiperBase.php b/modules/sc_swiper/src/SwiperBase.php
+index 9e7327e..2598f6f 100644
+--- a/modules/sc_swiper/src/SwiperBase.php
++++ b/modules/sc_swiper/src/SwiperBase.php
+@@ -21,12 +21,12 @@ class SwiperBase extends SliderCollectionSliderBase {
+       'spaceBetween' => 24,
+       'pagination' => TRUE,
+       'scrollbar' => TRUE,
+-      'clickable_pagination' => TRUE,
+-      'pagination_type' => 'bullets',
++      'clickablePagination' => TRUE,
++      'paginationType' => 'bullets',
+       'spaceBetweenMobile' => 24,
+       'spaceBetweenTablet' => 24,
+       'spaceBetweenDesktop' => 24,
+-      'effect' => NULL,
++      'effect' => 'slide',
+       'fadeEffect' => [
+         'crossFade' => TRUE,
+       ],
+@@ -39,83 +39,8 @@ class SwiperBase extends SliderCollectionSliderBase {
+    * {@inheritdoc}
+    */
+   public function formattedSettings($settings): array {
+-    $defaultSettings = $this->defaultSettings();
+-
+-    foreach ($settings as $key => $value) {
+-      // If the key is not in the default settings, remove it.
+-      if (!array_key_exists($key, $defaultSettings)) {
+-        unset($settings[$key]);
+-      }
+-    }
+-
+-    $settings['loop'] = (bool) $settings['loop'];
+-    $settings['navigation'] = (bool) $settings['navigation'];
+-    $settings['autoplay'] = (bool) $settings['autoplay'];
+-    $settings['delay'] = (int) $settings['delay'];
+-    $settings['speed'] = (int) $settings['speed'];
+-    $settings['pauseOnMouseEnter'] = (bool) $settings['pauseOnMouseEnter'];
+-    $settings['allowTouchMove'] = (bool) $settings['allowTouchMove'];
+-    $settings['spaceBetween'] = (int) $settings['spaceBetween'];
+-
+-    // Add classes to the navigation elements.
+-    if (!empty($settings['navigation'])) {
+-      $settings['navigation'] = [
+-        'nextEl' => '.swiper-button-next',
+-        'prevEl' => '.swiper-button-prev',
+-      ];
+-    }
+-
+-    // Adds class to the scrollbar element.
+-    if (!empty($settings['scrollbar'])) {
+-      $settings['scrollbar'] = [
+-        'el' => '.swiper-scrollbar',
+-      ];
+-    }
+-
+-    // Prepares pagination parameters.
+-    if (!empty($settings['pagination'])) {
+-      $settings['pagination'] = [];
+-      $settings['pagination']['type'] = (string) $settings['pagination_type'];
+-      $settings['pagination']['clickable'] = (bool) $settings['clickable_pagination'];
+-      $settings['pagination']['el'] = '.swiper-pagination';
+-    }
+-    else {
+-      $settings['pagination'] = FALSE;
+-    }
+-    unset($settings['pagination_type']);
+-    unset($settings['clickable_pagination']);
+-
+-    if (isset($settings['itemsMobile']) && isset($settings['breakpointMobile'])) {
+-      $breakpointMobile = (int) $settings['breakpointMobile'];
+-      $mobileConfiguration['slidesPerView'] = $settings['itemsMobile'];
+-      $mobileConfiguration['spaceBetween'] = (int) $settings['spaceBetweenMobile'];
+-      $settings['breakpoints'][$breakpointMobile] = $mobileConfiguration;
+-      unset($settings['itemsMobile']);
+-      unset($settings['breakpointMobile']);
+-      unset($settings['spaceBetweenMobile']);
+-    }
+-
+-    if (isset($settings['itemsTablet']) && isset($settings['breakpointTablet'])) {
+-      $breakpointTablet = (int) $settings['breakpointTablet'];
+-      $tabletConfiguration['slidesPerView'] = $settings['itemsTablet'];
+-      $tabletConfiguration['spaceBetween'] = (int) $settings['spaceBetweenTablet'];
+-      $settings['breakpoints'][$breakpointTablet] = $tabletConfiguration;
+-      unset($settings['itemsTablet']);
+-      unset($settings['breakpointTablet']);
+-      unset($settings['spaceBetweenTablet']);
+-    }
+-
+-    if (isset($settings['itemsDesktop']) && isset($settings['breakpointDesktop'])) {
+-      $breakpointDesktop = (int) $settings['breakpointDesktop'];
+-      $desktopConfiguration['slidesPerView'] = $settings['itemsDesktop'];
+-      $desktopConfiguration['spaceBetween'] = (int) $settings['spaceBetweenDesktop'];
+-      $settings['breakpoints'][$breakpointDesktop] = $desktopConfiguration;
+-      unset($settings['itemsDesktop']);
+-      unset($settings['breakpointDesktop']);
+-      unset($settings['spaceBetweenDesktop']);
+-    }
+-
+-    return $settings;
++    // If the key is not in the default settings, remove it.
++    return array_intersect_key($settings, $this->defaultSettings());
+   }
+ 
+ }
+diff --git a/modules/sc_swiper/templates/swiper-entity-formatter.html.twig b/modules/sc_swiper/templates/swiper-entity-formatter.html.twig
+index 6c4b598..3c17eeb 100644
+--- a/modules/sc_swiper/templates/swiper-entity-formatter.html.twig
++++ b/modules/sc_swiper/templates/swiper-entity-formatter.html.twig
+@@ -1,28 +1,18 @@
+ {% if attributes -%}
+-<div{{ attributes }}>
+-  {% endif %}
++  <div{{ attributes }}>
++{% endif %}
++
+   {% if title %}
+     <h3>{{ title }}</h3>
+   {% endif %}
+ 
+-  <div class="swiper-wrapper">
+-    {% for item in content %}
+-      <div class="swiper-slide">{{ item }}</div>
+-    {% endfor %}
+-  </div>
+-  {% if pagination %}
+-    <div class="swiper-pagination"></div>
+-  {% endif %}
+-
+-  {% if navigation %}
+-    <div class="swiper-button-prev"></div>
+-    <div class="swiper-button-next"></div>
++  {% if content is not empty %}
++    {% include 'sc_swiper:slider' with {
++      ...settings|default({}),
++      items: content| map(item => item|render),
++    } %}
+   {% endif %}
+ 
+-  {% if scrollbar %}
+-    <div class="swiper-scrollbar"></div>
+-  {% endif %}
+-
+-  {% if attributes -%}
+-</div>
+-{% endif %}
++{% if attributes -%}
++  </div>
++{% endif %}
+\ No newline at end of file
+diff --git a/modules/sc_swiper/templates/swiper-views.html.twig b/modules/sc_swiper/templates/swiper-views.html.twig
+index 55ce09f..e8aaee0 100644
+--- a/modules/sc_swiper/templates/swiper-views.html.twig
++++ b/modules/sc_swiper/templates/swiper-views.html.twig
+@@ -1,3 +1,5 @@
++{% set settings = settings|default({}) %}
++
+ {% if attributes -%}
+ <div{{ attributes }}>
+   {% endif %}
+@@ -5,22 +7,19 @@
+     <h3>{{ title }}</h3>
+   {% endif %}
+ 
+-  <div class="swiper-wrapper">
+-    {% for row in rows %}
+-      <div{{ row.attributes.addClass('swiper-slide') }}>{{ row.content }}</div>
+-    {% endfor %}
+-  </div>
+-  {% if pagination %}
+-    <div class="swiper-pagination"></div>
+-  {% endif %}
+-
+-  {% if navigation %}
+-    <div class="swiper-button-prev"></div>
+-    <div class="swiper-button-next"></div>
+-  {% endif %}
++  {% set items = [] %}
++  {% for row in rows %}
++    {% set item %}
++      <div{{ row.attributes }}>{{ row.content }}</div>
++    {% endset %}
++    {% set items = items|merge([item|render])  %}
++  {% endfor %}
+ 
+-  {% if scrollbar %}
+-    <div class="swiper-scrollbar"></div>
++  {% if items is not empty %}
++    {% include 'sc_swiper:slider' with {
++      ...settings,
++      items
++    } %}
+   {% endif %}
+ 
+   {% if attributes -%}
+-- 
+GitLab
+
+
+From e52404e755e422dc5d2847105f99af34f3f5d779 Mon Sep 17 00:00:00 2001
+From: Ihor Mashevskyi <i.mashevskyi@dev-branch.com>
+Date: Sat, 16 Aug 2025 11:26:24 +0300
+Subject: [PATCH 2/2] Issue #3541538: Corrected SwiperBase to use correct
+ properties type for sdc component.
+
+---
+ .../components/slider/slider.component.yml    |  7 ++--
+ modules/sc_swiper/sc_swiper.services.yml      |  2 ++
+ modules/sc_swiper/src/SwiperBase.php          | 32 +++++++++++++++++--
+ 3 files changed, 34 insertions(+), 7 deletions(-)
+
+diff --git a/modules/sc_swiper/components/slider/slider.component.yml b/modules/sc_swiper/components/slider/slider.component.yml
+index d7fae7f..07d5b29 100644
+--- a/modules/sc_swiper/components/slider/slider.component.yml
++++ b/modules/sc_swiper/components/slider/slider.component.yml
+@@ -78,14 +78,13 @@ props:
+         - fraction
+         - progressbar
+     effect:
+-      type: ['string', 'null']
++      type: 'string'
+       title: Effect
+       description: Transition effect
+-      default: null
++      default: slide
+       enum:
+-        - null
+-        - fade
+         - slide
++        - fade
+         - cube
+         - coverflow
+         - flip
+diff --git a/modules/sc_swiper/sc_swiper.services.yml b/modules/sc_swiper/sc_swiper.services.yml
+index f30c015..24164de 100644
+--- a/modules/sc_swiper/sc_swiper.services.yml
++++ b/modules/sc_swiper/sc_swiper.services.yml
+@@ -1,3 +1,5 @@
+ services:
+   sc_swiper.swiper:
+     class: Drupal\sc_swiper\SwiperBase
++    arguments:
++      - '@plugin.manager.sdc'
+diff --git a/modules/sc_swiper/src/SwiperBase.php b/modules/sc_swiper/src/SwiperBase.php
+index 2598f6f..3e6ca12 100644
+--- a/modules/sc_swiper/src/SwiperBase.php
++++ b/modules/sc_swiper/src/SwiperBase.php
+@@ -2,6 +2,7 @@
+ 
+ namespace Drupal\sc_swiper;
+ 
++use Drupal\Core\Theme\ComponentPluginManager;
+ use Drupal\slider_collection\SliderCollectionSliderBase;
+ 
+ /**
+@@ -9,6 +10,14 @@ use Drupal\slider_collection\SliderCollectionSliderBase;
+  */
+ class SwiperBase extends SliderCollectionSliderBase {
+ 
++  /**
++   * The component plugin manager.
++   *
++   * @var \Drupal\Core\Theme\ComponentPluginManager $componentPluginManager
++   *   The plugin manager service to deal with components.
++   */
++  public function __construct(protected ComponentPluginManager $componentPluginManager) {}
++
+   /**
+    * {@inheritdoc}
+    */
+@@ -38,9 +47,26 @@ class SwiperBase extends SliderCollectionSliderBase {
+   /**
+    * {@inheritdoc}
+    */
+-  public function formattedSettings($settings): array {
+-    // If the key is not in the default settings, remove it.
+-    return array_intersect_key($settings, $this->defaultSettings());
++  public function formattedSettings(array $settings): array {
++    $sdc = $this->componentPluginManager->find('sc_swiper:slider');
++    $sdc_properties = $sdc->getPluginDefinition()['props']['properties'] ?? [];
++    foreach ($settings as $key => $value) {
++      $definition = $sdc_properties[$key] ?? NULL;
++      if (!$definition || !isset($definition['type']) || is_array($definition['type'])) {
++        continue;
++      }
++
++      $settings[$key] = match ($definition['type']) {
++        'boolean' => (bool) $value,
++        'integer' => (int) $value,
++        'string' => (string) $value,
++        'float' => (float) $value,
++        'array' => !is_array($value) ? [] : $value,
++        default => $value,
++      };
++    }
++
++    return $settings;
+   }
+ 
+ }
+-- 
+GitLab
+

@@ -1,0 +1,75 @@
+From 56479c84777a25377577db4087fa8096539708bc Mon Sep 17 00:00:00 2001
+From: Kostia Bohach <k.bohach@dev-branch.com>
+Date: Tue, 14 Oct 2025 16:55:45 +0300
+Subject: [PATCH] [#3552092] feat: Use new Icon API
+
+---
+ tmgmt.icons.yml | 36 ++++++++++++++++++++++++++++++++++++
+ tmgmt.module    | 11 +++++++++++
+ 2 files changed, 47 insertions(+)
+ create mode 100644 tmgmt.icons.yml
+
+diff --git a/tmgmt.icons.yml b/tmgmt.icons.yml
+new file mode 100644
+index 00000000..9660571c
+--- /dev/null
++++ b/tmgmt.icons.yml
+@@ -0,0 +1,36 @@
++tmgmt:
++  enabled: true
++  label: "Translation Management"
++  description: "Icons available within the Translation Management module."
++  version: 1.x
++  license:
++    name: GPL2-or-later
++    url: https://api.drupal.org/api/drupal/core%21LICENSE.txt/11.x
++    gpl-compatible: true
++  extractor: svg
++  config:
++    sources:
++      - icons/*.svg
++  settings:
++    size:
++      title: "Size"
++      description: "Set a size for this icon."
++      type: "integer"
++      default: 20
++    class:
++      title: "Class"
++      description: "Set a class for this icon."
++      type: "string"
++      default: ""
++  template: >
++    <svg
++      {{ attributes
++          .setAttribute('viewBox', attributes.viewBox|default('0 0 24 24'))
++          .setAttribute('class', class)
++          .setAttribute('width', size|default('20'))
++          .setAttribute('height', size|default('20'))
++          .setAttribute('aria-hidden', 'true')
++      }}
++    >
++      {{ content }}
++    </svg>
+diff --git a/tmgmt.module b/tmgmt.module
+index 83ce1270..43e47b2e 100644
+--- a/tmgmt.module
++++ b/tmgmt.module
+@@ -1310,3 +1310,14 @@ function tmgmt_help($route_name, RouteMatchInterface $route_match) {
+       return $output;
+   }
+ }
++
++/**
++ * Implements hook_preprocess_HOOK().
++ */
++function tmgmt_preprocess_navigation_menu__admin(&$variables) {
++  if (isset($variables['items']['tmgmt.admin_tmgmt'])) {
++    // Add icon to the help menu item.
++    $variables['items']['tmgmt.admin_tmgmt']['icon']['pack_id'] = 'tmgmt';
++    $variables['items']['tmgmt.admin_tmgmt']['icon']['icon_id'] = 'earth';
++  }
++}
+-- 
+GitLab
+

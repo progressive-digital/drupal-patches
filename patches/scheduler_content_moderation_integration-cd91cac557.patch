@@ -1,0 +1,106 @@
+From cd91cac5578e2c386c1b00306bc032f203889bfa Mon Sep 17 00:00:00 2001
+From: Sara Cartee-Kennedy <sara.carteekennedy@bounteous.com>
+Date: Fri, 18 Oct 2024 17:05:36 -0400
+Subject: [PATCH] Set a default value in the publish / unpublish state
+ dropdowns; make fields conditional.
+
+---
+ ...uler_content_moderation_integration.module | 72 ++++++++++++++++---
+ 1 file changed, 64 insertions(+), 8 deletions(-)
+
+diff --git a/scheduler_content_moderation_integration.module b/scheduler_content_moderation_integration.module
+index 2cb1d6d..7384c0e 100644
+--- a/scheduler_content_moderation_integration.module
++++ b/scheduler_content_moderation_integration.module
+@@ -332,13 +332,28 @@ function scheduler_content_moderation_integration_form_alter(&$form, FormStateIn
+     return;
+   }
+ 
++  if (!isset($form['publish_state']) && !isset($form['unpublish_state'])) {
++    return;
++  }
++
+   // Attach the publish/un-publish state form elements to the scheduler
+   // settings group.
+-  $form['publish_state']['#group'] = 'scheduler_settings';
+-  $form['unpublish_state']['#group'] = 'scheduler_settings';
++  if (isset($form['publish_state'])) {
++    $form['publish_state']['#group'] = 'scheduler_settings';
++  }
++  if (isset($form['unpublish_state'])) {
++    $form['unpublish_state']['#group'] = 'scheduler_settings';
++  }
+ 
+-  $form['publish_state']['widget']['#after_build'][] = '_scheduler_content_moderation_integration_hide_empty_state_options';
+-  $form['unpublish_state']['widget']['#after_build'][] = '_scheduler_content_moderation_integration_hide_empty_state_options';
++  if (isset($form['publish_state'])) {
++    $form['publish_state']['widget']['#after_build'][] = '_scheduler_content_moderation_integration_hide_empty_state_options';
++  }
++  if (isset($form['unpublish_state'])) {
++    $form['unpublish_state']['widget']['#after_build'][] = '_scheduler_content_moderation_integration_hide_empty_state_options';
++  }
++
++  // Add a submit handler that empties the state fields if the date fields are empty.
++  array_unshift($form['actions']['submit']['#submit'], '_scheduler_content_moderation_integration_form_entity_submit');
+ 
+   // If scheduling for publish/unpublish is not enabled, then hide the
+   // corresponding state selection field. If #access is already set to false
+@@ -347,10 +362,51 @@ function scheduler_content_moderation_integration_form_alter(&$form, FormStateIn
+   /** @var \Drupal\Core\Entity\EntityInterface $entity */
+   $entity = $form_state->getFormObject()->getEntity();
+ 
+-  // If scheduling for publish/unpublish is not enabled, then hide the state
+-  // selection field.
+-  $form['publish_state']['#access'] = ($form['publish_state']['#access'] ?? TRUE) && $scheduler_manager->getThirdPartySetting($entity, 'publish_enable', $config->get('default_publish_enable'));
+-  $form['unpublish_state']['#access'] = ($form['unpublish_state']['#access'] ?? TRUE) && $scheduler_manager->getThirdPartySetting($entity, 'unpublish_enable', $config->get('default_unpublish_enable'));
++  if (isset($form['publish_state'])) {
++    $show_publish_state = isset($form['publish_state']['#type']) && ($form['publish_state']['#access'] ?? TRUE) && $scheduler_manager->getThirdPartySetting($entity, 'publish_enable', $config->get('default_publish_enable'));
++    $form['publish_state']['#access'] = $show_publish_state;
++
++    if ($show_publish_state) {
++      $form['publish_state']['#states'] = [
++        // The #states visible conditions are always 'AND'ed together.
++        'visible' => [
++          ':input[name="publish_on[0][value][date]"]' => ['!value' => ''],
++          ':input[name="publish_on[0][value][time]"]' => ['!value' => ''],
++        ],
++      ];
++      unset($form['publish_state']['widget'][0]['#options']['_none']);
++    }
++  }
++  if (isset($form['unpublish_state'])) {
++    $show_unpublish_state = isset($form['unpublish_state']['#type']) && ($form['unpublish_state']['#access'] ?? TRUE) && $scheduler_manager->getThirdPartySetting($entity, 'unpublish_enable', $config->get('default_unpublish_enable'));
++    $form['unpublish_state']['#access'] = $show_unpublish_state;
++
++    if ($show_unpublish_state) {
++      $form['unpublish_state']['#states'] = [
++        'visible' => [
++          ':input[name="unpublish_on[0][value][date]"]' => ['!value' => ''],
++          ':input[name="unpublish_on[0][value][time]"]' => ['!value' => ''],
++        ],
++      ];
++      unset($form['unpublish_state']['widget'][0]['#options']['_none']);
++    }
++  }
++}
++
++/**
++ * Entity form submit handler.
++ */
++function _scheduler_content_moderation_integration_form_entity_submit($form, FormStateInterface $form_state) {
++  if (isset($form['publish_on'])) {
++    if ($form_state->getValue(['publish_on', 0, 'value']) === NULL) {
++      $form_state->setValue('publish_state', [['value' => NULL]]);
++    }
++  }
++  if (isset($form['unpublish_on'])) {
++    if ($form_state->getValue(['unpublish_on', 0, 'value']) === NULL) {
++      $form_state->setValue('unpublish_state', [['value' => NULL]]);
++    }
++  }
+ }
+ 
+ /**
+-- 
+GitLab
+

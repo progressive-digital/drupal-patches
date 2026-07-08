@@ -1,0 +1,19 @@
+diff --git a/src/Plugin/Block/LanguageDropdownBlock.php b/src/Plugin/Block/LanguageDropdownBlock.php
+index 91e456a..bce0f45 100644
+--- a/src/Plugin/Block/LanguageDropdownBlock.php
++++ b/src/Plugin/Block/LanguageDropdownBlock.php
+@@ -715,8 +715,13 @@ class LanguageDropdownBlock extends BlockBase implements ContainerFactoryPluginI
+       return [];
+     }
+ 
++    $route_match = \Drupal::routeMatch();
++    if (empty($route_match->getRouteObject())) {
++      return  [];
++    }
++
+     $type = $this->getDerivativeId();
+-    $languages = $this->languageManager->getLanguageSwitchLinks($type, Url::fromRouteMatch(\Drupal::routeMatch()));
++    $languages = $this->languageManager->getLanguageSwitchLinks($type, Url::fromRouteMatch($route_match));
+ 
+     if (isset($languages) && isset($languages->links) && is_array($languages->links)) {
+       $roles = $this->currentUser->getRoles();

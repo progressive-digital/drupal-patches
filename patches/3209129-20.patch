@@ -1,0 +1,13 @@
+diff --git a/core/modules/layout_builder/js/layout-builder.js b/core/modules/layout_builder/js/layout-builder.js
+index 76b751c6cc..e632b16476 100644
+--- a/core/modules/layout_builder/js/layout-builder.js
++++ b/core/modules/layout_builder/js/layout-builder.js
+@@ -279,7 +279,7 @@
+     mainCanvas.addEventListener('transitionend', () => {
+       const $target = $('.is-layout-builder-highlighted');
+ 
+-      if ($target.length > 0) {
++      if (this === mainCanvas && $target.length > 0) {
+         // These four variables are used to determine if the element is in the
+         // viewport.
+         const targetTop = $target.offset().top;

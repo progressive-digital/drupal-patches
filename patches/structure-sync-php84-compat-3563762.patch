@@ -1,0 +1,84 @@
+--- a/src/Controller/BlocksController.php
++++ b/src/Controller/BlocksController.php
+@@ -40,7 +40,7 @@
+   /**
+    * Function to export custom blocks.
+    */
+-  public function exportBlocks(array $form = NULL, FormStateInterface $form_state = NULL) {
++  public function exportBlocks(?array $form = NULL, ?FormStateInterface $form_state = NULL) {
+     StructureSyncHelper::logMessage('Custom blocks export started');
+
+     if (is_object($form_state) && $form_state->hasValue('export_block_list')) {
+@@ -109,7 +109,7 @@
+    * an array with a key value pair for form with key 'style' and value 'full',
+    * 'safe' or 'force' to apply that import style.
+    */
+-  public function importBlocks(array $form, FormStateInterface $form_state = NULL) {
++  public function importBlocks(array $form, ?FormStateInterface $form_state = NULL) {
+     StructureSyncHelper::logMessage('Custom blocks import started');
+
+     // Check if the import style has been defined in the form (state) and else
+@@ -260,6 +260,7 @@
+    * blocks.
+    */
+   public static function importBlocksFull($blocks, &$context) {
++    $blocks = $blocks ?? [];
+     $uuidsInConfig = [];
+     foreach ($blocks as $block) {
+       $uuidsInConfig[] = $block['uuid'];
+@@ -338,6 +339,7 @@
+    * Function to import blocks safely (only adding what isn't already there).
+    */
+   public static function importBlocksSafe($blocks, &$context) {
++    $blocks = $blocks ?? [];
+     $blocksFiltered = $blocks;
+
+     $entities = StructureSyncHelper::getEntityManager()
+@@ -393,6 +395,7 @@
+    * Function to import (create) all custom blocks that need to be imported.
+    */
+   public static function importBlocksForce($blocks, &$context) {
++    $blocks = $blocks ?? [];
+     foreach ($blocks as $block) {
+       $blockContent = BlockContent::create([
+         'info' => $block['info'],
+--- a/src/Controller/TaxonomiesController.php
++++ b/src/Controller/TaxonomiesController.php
+@@ -40,7 +40,7 @@
+   /**
+    * Function to export taxonomy terms.
+    */
+-  public function exportTaxonomies(array $form = NULL, FormStateInterface $form_state = NULL) {
++  public function exportTaxonomies(?array $form = NULL, ?FormStateInterface $form_state = NULL) {
+     StructureSyncHelper::logMessage('Taxonomies export started');
+
+     if (is_object($form_state) && $form_state->hasValue('export_voc_list')) {
+@@ -163,7 +163,7 @@
+    * an array with a key value pair for form with key 'style' and value 'full',
+    * 'safe' or 'force' to apply that import style.
+    */
+-  public function importTaxonomies(array $form, FormStateInterface $form_state = NULL) {
++  public function importTaxonomies(array $form, ?FormStateInterface $form_state = NULL) {
+     StructureSyncHelper::logMessage('Taxonomy import started');
+
+     // Check if the import style has been defined in the form (state) and else
+--- a/src/Controller/MenuLinksController.php
++++ b/src/Controller/MenuLinksController.php
+@@ -63,7 +63,7 @@
+   /**
+    * Function to export menu links.
+    */
+-  public function exportMenuLinks(array $form = NULL, FormStateInterface $form_state = NULL) {
++  public function exportMenuLinks(?array $form = NULL, ?FormStateInterface $form_state = NULL) {
+     StructureSyncHelper::logMessage('Menu links export started');
+
+     if (is_object($form_state) && $form_state->hasValue('export_menu_list')) {
+@@ -166,7 +166,7 @@
+    * an array with a key value pair for form with key 'style' and value 'full',
+    * 'safe' or 'force' to apply that import style.
+    */
+-  public function importMenuLinks(array $form, FormStateInterface $form_state = NULL) {
++  public function importMenuLinks(array $form, ?FormStateInterface $form_state = NULL) {
+     StructureSyncHelper::logMessage('Menu links import started');
+
+     // Check if the there is a selection made in a form for what menus need to

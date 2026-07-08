@@ -1,0 +1,24 @@
+diff --git a/includes/scheduler_hooks.inc b/includes/scheduler_hooks.inc
+index ef803e3..4ee1c2f 100644
+--- a/includes/scheduler_hooks.inc
++++ b/includes/scheduler_hooks.inc
+@@ -71,6 +71,9 @@ function scheduler_content_moderation_integration_scheduler_publish_process($ent
+   }
+ 
+   $state = $entity->publish_state->value;
++  if (empty($state)) {
++    $state = "published";
++  }
+   $entity->publish_state->value = NULL;
+ 
+   /** @var \Drupal\content_moderation\Plugin\WorkflowType\ContentModerationInterface $type_plugin */
+@@ -104,6 +107,9 @@ function scheduler_content_moderation_integration_scheduler_unpublish_process($e
+   }
+ 
+   $state = $entity->unpublish_state->value;
++  if (empty($state)) {
++    $state = "unpublished";
++  }
+   $entity->unpublish_state->value = NULL;
+ 
+   /** @var \Drupal\content_moderation\Plugin\WorkflowType\ContentModerationInterface $type_plugin */

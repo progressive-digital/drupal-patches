@@ -1,0 +1,25 @@
+diff --git a/layout_builder_blocks.module b/layout_builder_blocks.module
+index ba48972..ac81238 100644
+--- a/layout_builder_blocks.module
++++ b/layout_builder_blocks.module
+@@ -31,9 +31,10 @@ function layout_builder_blocks_form_alter(&$form, FormStateInterface $form_state
+     }
+ 
+     if (
+-      empty($config->get('block_restrictions'))
++      \Drupal::currentUser()->hasPermission('configure layout builder blocks appearance tab')
++      && (empty($config->get('block_restrictions'))
+       || in_array($block_plugin_id, $config->get('block_restrictions'))
+-      || $bundle && in_array('inline_block:' . $bundle, $config->get('block_restrictions'))
++      || $bundle && in_array('inline_block:' . $bundle, $config->get('block_restrictions')))
+     ) {
+       // Return parent form.
+       $allowed = TRUE;
+diff --git a/layout_builder_blocks.permissions.yml b/layout_builder_blocks.permissions.yml
+new file mode 100644
+index 0000000..2b57a97
+--- /dev/null
++++ b/layout_builder_blocks.permissions.yml
+@@ -0,0 +1,2 @@
++configure layout builder blocks appearance tab:
++  title: 'Configure layout builder blocks appearance tab'

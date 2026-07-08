@@ -1,0 +1,46 @@
+From aabda5e8abec25af92681fbe8b91d0f345e432fe Mon Sep 17 00:00:00 2001
+From: Ihor Mashevskyi <i.mashevskyi@dev-branch.com>
+Date: Mon, 31 Mar 2025 11:36:10 +0300
+Subject: [PATCH] Issue #3516060: Corrected BlockComponentRevisionSubscriber
+ subscriber
+
+---
+ frontend_editing.services.yml                            | 4 ++++
+ src/EventSubscriber/BlockComponentRevisionSubscriber.php | 2 --
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/frontend_editing.services.yml b/frontend_editing.services.yml
+index c5ff5bb..42b1852 100644
+--- a/frontend_editing.services.yml
++++ b/frontend_editing.services.yml
+@@ -11,3 +11,7 @@ services:
+     class: Drupal\frontend_editing\Routing\RouteSubscriber
+     tags:
+       - { name: event_subscriber }
++  frontend_editing.layout_builder_block:
++    class: Drupal\frontend_editing\EventSubscriber\BlockComponentRevisionSubscriber
++    tags:
++      - { name: event_subscriber }
+diff --git a/src/EventSubscriber/BlockComponentRevisionSubscriber.php b/src/EventSubscriber/BlockComponentRevisionSubscriber.php
+index e58739b..00d96ab 100644
+--- a/src/EventSubscriber/BlockComponentRevisionSubscriber.php
++++ b/src/EventSubscriber/BlockComponentRevisionSubscriber.php
+@@ -2,7 +2,6 @@
+ 
+ namespace Drupal\frontend_editing\EventSubscriber;
+ 
+-use Drupal\Core\Entity\EntityInterface;
+ use Drupal\layout_builder\Event\SectionComponentBuildRenderArrayEvent;
+ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+ use Drupal\layout_builder\LayoutBuilderEvents;
+@@ -35,7 +34,6 @@ class BlockComponentRevisionSubscriber implements EventSubscriberInterface {
+       $revision_id = $event->getComponent()->getPlugin()->getConfiguration()['block_revision_id'];
+       $query['entity_revision_id'] = $revision_id;
+       $url->setOption('query', $query);
+-      $event->setBuild($build);
+     }
+   }
+ 
+-- 
+GitLab
+
