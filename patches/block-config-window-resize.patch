@@ -1,11 +1,9 @@
-diff --git a/core/misc/dialog/off-canvas/js/off-canvas.js b/core/misc/dialog/off-canvas/js/off-canvas.js
-index a85f3522..faca6843 100644
---- a/core/misc/dialog/off-canvas/js/off-canvas.js
-+++ b/core/misc/dialog/off-canvas/js/off-canvas.js
+--- a/core/misc/dialog/off-canvas/js/off-canvas.js	2026-07-08 07:16:47.864909473 +0000
++++ b/core/misc/dialog/off-canvas/js/off-canvas.js	2026-07-08 07:16:47.903911090 +0000
 @@ -139,12 +139,20 @@
          .getContainer($element)
          .attr(`data-offset-${Drupal.offCanvas.getEdge()}`, '');
-
+ 
 +      let resizeTimer;
        $(window)
 -        .on(
@@ -27,3 +25,4 @@ index a85f3522..faca6843 100644
 +        })
          .trigger('resize.off-canvas');
      },
+ 
