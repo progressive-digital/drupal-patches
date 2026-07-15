@@ -1,0 +1,30 @@
+diff --git a/quick_node_clone.module b/quick_node_clone.module
+index f485a23dfe1d2af4a42148d43a2760c5186d4b31..7665c6fd4a451ad78a013f36db9bc2c1d8850835 100644
+--- a/quick_node_clone.module
++++ b/quick_node_clone.module
+@@ -18,6 +18,13 @@ use Drupal\node\NodeInterface;
+ use Drupal\Core\Access\AccessResult;
+ use Drupal\Core\Session\AccountInterface;
+ 
++if (class_exists('\Drupal\node\Form\NodeForm')) {
++  class_alias('\Drupal\node\Form\NodeForm', 'Drupal\quick_node_clone\Form\NodeForm');
++}
++else {
++  class_alias('\Drupal\node\NodeForm', 'Drupal\quick_node_clone\Form\NodeForm');
++}
++
+ /**
+  * Implements hook_entity_type_build().
+  */
+diff --git a/src/Form/QuickNodeCloneNodeForm.php b/src/Form/QuickNodeCloneNodeForm.php
+index cee725795afeb887a8d93e8757eaada0d46e38d7..2715f486dcc8acc314fd1c7a06d255855f1c91fe 100644
+--- a/src/Form/QuickNodeCloneNodeForm.php
++++ b/src/Form/QuickNodeCloneNodeForm.php
+@@ -3,7 +3,6 @@
+ namespace Drupal\quick_node_clone\Form;
+ 
+ use Drupal\Core\Form\FormStateInterface;
+-use Drupal\node\NodeForm;
+ 
+ /**
+  * Form controller for Quick Node Clone edit forms.
